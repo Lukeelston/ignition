@@ -54,7 +54,7 @@ def find_chrome():
 
 def main():
     parser = argparse.ArgumentParser(description='Open the Ignition engine-sound workbench.')
-    parser.add_argument('--port', type=int, default=0, help='0 selects an available local port')
+    parser.add_argument('--port', type=int, default=8767, help='Default 8767 keeps browser patch storage stable; 0 selects a free port')
     parser.add_argument('--no-browser', action='store_true')
     args = parser.parse_args()
     server = make_server(args.port)

@@ -12,7 +12,7 @@ OUT.mkdir(exist_ok=True)
 
 
 def main():
-    server = subprocess.Popen([sys.executable, str(ROOT / 'serve.py'), '--no-browser'], cwd=ROOT, stdout=subprocess.PIPE, text=True)
+    server = subprocess.Popen([sys.executable, str(ROOT / 'serve.py'), '--no-browser', '--port', '0'], cwd=ROOT, stdout=subprocess.PIPE, text=True)
     browser = None
     report = {'server_pid': server.pid}
     try:
@@ -81,6 +81,9 @@ def main():
             page.get_by_role('button', name='Start engine', exact=True).click()
             page.wait_for_function("document.body.dataset.running === 'true'")
             page.get_by_role('button', name='Stop engine', exact=True).click()
+            page.wait_for_function("document.body.dataset.running === 'false'")
+            page.reload()
+            page.wait_for_function("document.querySelector('#rpm')?.value === '4200'", timeout=5000)
             page.set_viewport_size({'width': 390, 'height': 844})
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Mobile overflow'
             page.screenshot(path=str(OUT / 'ignition-mobile.png'), full_page=True)

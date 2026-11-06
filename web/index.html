@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Ignition — Elston Works</title>
+  <link rel="stylesheet" href="style.css"><script type="module" src="app.js"></script>
+</head>
+<body data-running="false">
+<header class="masthead">
+  <div class="identity"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M9 6h22v12H9zM14 10h12M20 18v10m-8 5a8 8 0 1 1 16 0"/></svg><div><h1>Ignition</h1><span>by Elston Works</span></div></div>
+  <div class="masthead-note">Engine sound workbench<span>From a cold idle to another world.</span></div>
+  <span class="local-badge"><i></i> Local synthesis</span>
+</header>
+<main>
+  <section class="preset-section" aria-label="Engine starting points"><div class="section-line"><h2>Choose a starting point</h2><span>Then make it yours.</span></div><div id="presets" class="presets"></div></section>
+  <div class="workbench">
+    <section class="dyno" aria-label="Live engine bench">
+      <div class="bench-heading"><div><span class="engine-label" id="engine-family">Road</span><h2 id="engine-name">Big-block V8</h2></div><span class="state"><i id="state-light"></i><span id="state-label">Engine off</span></span></div>
+      <p id="preset-note" class="preset-note"></p>
+      <div class="dial-wrap">
+        <svg class="tachometer" viewBox="0 0 440 345" role="img" aria-label="Engine tachometer"><g id="dial-ticks"></g><g id="needle" transform="rotate(-130 220 170)"><path d="M217 182 220 42 223 182Z" fill="#f5cc4e"/></g><circle cx="220" cy="170" r="14" fill="#172d3b" stroke="#94a7b2" stroke-width="2"/><circle cx="220" cy="170" r="4" fill="#f5cc4e"/><text x="220" y="256" id="rpm-readout" class="rpm-readout" text-anchor="middle">0</text><text x="220" y="281" text-anchor="middle" class="dial-unit">RPM</text><text x="220" y="323" text-anchor="middle" class="dial-caption" id="dial-caption">8 cylinders · 4-stroke</text></svg>
+      </div>
+      <div class="live-controls">
+        <label class="slider-label" for="rpm"><span>Target RPM</span><output id="rpm-value">950</output></label><input type="range" id="rpm" min="350" max="7000" step="10" value="950">
+        <label class="slider-label" for="load"><span>Engine load</span><output id="load-value">28%</output></label><input type="range" id="load" min="0" max="1" step=".01" value=".28">
+      </div>
+      <div class="transport"><button id="ignition" class="start">Start engine</button><button id="rev" class="rev" aria-pressed="false" disabled>Hold to rev</button><button id="sweep" class="sweep" disabled>Rev once</button></div>
+      <div class="monitor"><label for="volume">Monitor</label><input id="volume" aria-label="Monitor volume" type="range" min="0" max=".8" step=".01" value=".25"><output id="volume-value">25%</output><button id="mute" aria-pressed="false" title="Mute live monitoring">Mute</button></div>
+      <div class="scope-box"><div><span>Output waveform</span><span id="output-level">— dBFS</span></div><canvas id="scope" width="700" height="130" aria-label="Live output waveform"></canvas></div>
+      <p class="bench-help">Hold the rev button with your mouse, touch, Space or Enter. Release to return to your target RPM.</p>
+    </section>
+    <section class="designer" aria-labelledby="designer-title">
+      <div class="designer-heading"><h2 id="designer-title">Build the character</h2><button id="reset" class="text-button">Reset preset</button></div>
+      <div class="architecture">
+        <label>Powerplant<select id="mode"><option value="combustion">Combustion</option><option value="turbine">Turbine</option><option value="ion">Ion / reactor</option></select></label>
+        <label>Cylinders<input id="cylinders" type="number" min="1" max="16" step="1" value="8"></label>
+        <label>Firing rhythm<select id="firing"><option value="even">Even</option><option value="cross">Cross-bank</option><option value="uneven">Uneven twin</option></select></label>
+        <label>Cycle<select id="stroke"><option value="4">4-stroke</option><option value="2">2-stroke</option></select></label>
+        <label>Idle RPM<input id="idle" type="number" min="350" max="4000" step="50" value="750"></label>
+        <label>Redline RPM<input id="redline" type="number" min="2000" max="18000" step="100" value="7000"></label>
+      </div>
+      <div id="sound-controls"></div>
+      <div class="patch-row"><label class="seed-label">Variation seed<input id="seed" type="number" min="0" max="4294967295" step="1" value="7"></label><div class="patch-actions"><button id="save">Save patch</button><button id="load-patch">Load patch</button><input id="patch-file" type="file" accept=".json,application/json" hidden></div></div>
+    </section>
+  </div>
+  <section class="export-bench" aria-labelledby="export-heading">
+    <div class="export-title"><h2 id="export-heading">Take the sound with you.</h2><p>Render your engine into a WAV for a game, film or next questionable invention.</p><span>48 kHz / 24-bit / mono</span></div>
+    <div class="export-controls"><label>Motion<select id="motion"><option value="steady">Steady RPM</option><option value="rev" selected>Rev up &amp; release</option><option value="sweep">Idle to redline</option><option value="gears">Through the gears</option></select></label><label class="duration-label">Seconds<input id="duration" type="number" min="2" max="30" value="8" step="1"></label><button id="render" class="render">Render WAV</button></div>
+    <div class="render-result" id="render-result" hidden><audio id="preview" controls aria-label="Last rendered engine sound"></audio><a id="download" download>Download again</a><span id="render-info"></span></div>
+  </section>
+  <div class="status-row"><p id="status" role="status" aria-live="polite">Ready. Start an engine or render a sound.</p><span id="patch-state">Big-block V8</span></div>
+</main>
+<footer><span>Ignition 0.1 <span class="footer-separator">/</span> Syrinx’s louder sibling.</span><span>Procedural sound design. No recordings or accounts.</span><button id="quit" class="text-button">Quit app</button></footer>
+</body>
+</html>
