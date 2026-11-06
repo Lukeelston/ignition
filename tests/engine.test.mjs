@@ -45,7 +45,7 @@ if (api) {
     const b = renderClip({...base, load: 1}, {duration: 2, motion: 'steady'});
     assert.ok(rms(b) > rms(a) * 1.15);
     const synth = new EngineSynth({...base, rpm: 1000});
-    synth.set({...base, rpm: 8000}); synth.process(new Float32Array(128));
+    synth.set({...base, rpm: 8000, redline:8500}); synth.process(new Float32Array(128));
     assert.ok(synth.rpm > 1000 && synth.rpm < 2000);
   });
   test('extreme layer mixes stay finite at minimum and maximum speed', () => {
@@ -53,6 +53,17 @@ if (api) {
       const a = renderClip({...base, rpm, redline: 18000, cylinders: 16, load: 1, body: 1, rasp: 1, intake: 1, whine: 1, turbo: 1, roughness: 1, sub: 1, reactor: 1}, {duration: 2, motion: 'steady'});
       assert.ok(a.every(Number.isFinite)); assert.ok(peak(a) < 0.96);
     }
+  });
+  test('changing seed affects a running engine without resetting on unchanged patch messages', () => {
+    const a=new EngineSynth(base), b=new EngineSynth(base);
+    a.process(new Float32Array(4800));b.process(new Float32Array(4800));
+    a.set({...base});
+    assert.deepEqual(a.process(new Float32Array(4800)), b.process(new Float32Array(4800)));
+    a.set({seed:99});
+    assert.notDeepEqual(a.process(new Float32Array(4800)), b.process(new Float32Array(4800)));
+  });
+  test('imported target RPM cannot exceed the engine redline', () => {
+    assert.throws(()=>parsePatch('{"format":"ignition-patch","version":1,"patch":{"rpm":18000,"redline":2000}}'),/redline/i);
   });
   test('render trajectories differ and invalid render requests are rejected', () => {
     const steady = renderClip(base, {duration: 2, motion: 'steady'});

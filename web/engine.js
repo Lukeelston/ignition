@@ -30,6 +30,7 @@ export function validatePatch(input) {
   for (const key of ['cylinders','seed']) if (!Number.isInteger(patch[key])) throw new Error(`${key} must be a whole number.`);
   for (const [key,values] of Object.entries(enums)) if (!values.includes(patch[key])) throw new Error(`Invalid ${key}.`);
   if (patch.idle >= patch.redline) throw new Error('Redline must be above idle RPM.');
+  if (patch.rpm > patch.redline) throw new Error('Target RPM must not exceed the redline.');
   return patch;
 }
 export function serializePatch(patch) {
@@ -66,7 +67,11 @@ export class EngineSynth {
     this.prev = 0; this.dc = 0; this.firings = 0;
     this.delay = new Float32Array(Math.round(sampleRate * .027)); this.delayIndex = 0;
   }
-  set(patch) { this.target = validatePatch({...this.target,...patch}); }
+  set(patch) {
+    const next=validatePatch({...this.target,...patch});
+    if(next.seed!==this.target.seed) { this.rng=next.seed||0x6d2b79f5;this.p.seed=next.seed; }
+    this.target=next;
+  }
   noise() {
     let x = this.rng; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; this.rng = x >>> 0;
     return this.rng / 2147483648 - 1;

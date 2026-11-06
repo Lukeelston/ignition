@@ -97,6 +97,7 @@ async function toggleEngine() {
   try {
     if(running) { await stop();status('Engine stopped. Your patch is saved on this browser.'); }
     else {
+      $('preview').pause();
       context=new AudioContext({sampleRate:48000,latencyHint:'interactive'});
       if(!context.audioWorklet)throw new Error('Open Ignition through its launcher in Chrome.');
       await context.audioWorklet.addModule('worklet.js');

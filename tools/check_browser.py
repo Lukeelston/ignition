@@ -51,13 +51,43 @@ def main():
             }''')
             assert capture['state'] == 'running' and capture['rms'] > .001, capture
             report['live_audio'] = capture
+            live_wav = page.evaluate('''async () => {
+                const context=window.testContext, engineSource=window.testSource;
+                const source=`class Capture extends AudioWorkletProcessor {
+                    constructor(){super();this.buffer=new Float32Array(48000);this.offset=0;}
+                    process(inputs){const data=inputs[0]?.[0];if(data){
+                        const count=Math.min(data.length,this.buffer.length-this.offset);
+                        this.buffer.set(data.subarray(0,count),this.offset);this.offset+=count;
+                        if(this.offset===this.buffer.length){this.port.postMessage(this.buffer,[this.buffer.buffer]);return false;}
+                    }return true;}
+                }registerProcessor('qa-capture',Capture);`;
+                const url=URL.createObjectURL(new Blob([source],{type:'text/javascript'}));
+                await context.audioWorklet.addModule(url);URL.revokeObjectURL(url);
+                const recorder=new AudioWorkletNode(context,'qa-capture');
+                const pending=new Promise(resolve=>recorder.port.onmessage=event=>resolve(event.data));
+                engineSource.connect(recorder);recorder.connect(context.destination);
+                const samples=await pending;engineSource.disconnect(recorder);recorder.disconnect();
+                const {encodeWav}=await import('./engine.js');
+                return Array.from(new Uint8Array(encodeWav(samples,context.sampleRate)));
+            }''')
+            (OUT / 'live-worklet-capture.wav').write_bytes(bytes(live_wav))
+            report['live_capture_file'] = 'live-worklet-capture.wav'
             page.locator('#rpm').fill('4200')
             page.locator('#rpm').dispatch_event('input')
             page.wait_for_function("Number(document.querySelector('#rpm-readout').textContent.replace(/,/g,'')) > 3500")
+            page.screenshot(path=str(OUT / 'ignition-running.png'), full_page=True)
+            page.get_by_role('button', name='Mute', exact=True).click()
+            page.wait_for_function("document.querySelector('#output-level').textContent === '— dBFS'")
+            page.get_by_role('button', name='Unmute', exact=True).click()
             page.get_by_role('button', name='Hold to rev', exact=True).focus()
             page.keyboard.down('Space')
             page.wait_for_timeout(200)
             page.keyboard.up('Space')
+            assert page.locator('#rev').get_attribute('aria-pressed') == 'false'
+            page.locator('#rev').hover()
+            page.mouse.down()
+            page.locator('#rev').dispatch_event('pointercancel', {'pointerId': 1})
+            page.mouse.up()
             assert page.locator('#rev').get_attribute('aria-pressed') == 'false'
             with page.expect_download() as saved:
                 page.get_by_role('button', name='Save patch', exact=True).click()
@@ -75,6 +105,11 @@ def main():
             with wave.open(str(OUT / 'browser-render.wav')) as wav:
                 assert (wav.getnchannels(), wav.getsampwidth(), wav.getframerate(), wav.getnframes()) == (1, 3, 48000, 96000)
                 report['export'] = {'channels': 1, 'bit_depth': 24, 'sample_rate': 48000, 'frames': 96000}
+            page.locator('#preview').evaluate('(audio) => audio.play()')
+            page.wait_for_function("document.body.dataset.running === 'false'")
+            page.get_by_role('button', name='Start engine', exact=True).click()
+            page.wait_for_function("document.body.dataset.running === 'true'")
+            assert page.locator('#preview').evaluate('(audio) => audio.paused'), 'Starting the engine must stop preview playback'
             page.get_by_role('button', name='Stop engine', exact=True).click()
             page.wait_for_function("document.body.dataset.running === 'false'")
             assert page.evaluate('window.testContext.state') == 'closed'
