@@ -1,0 +1,7 @@
+__pycache__/
+.pytest_cache/
+.superpowers/
+evidence/*.wav
+evidence/*.png
+evidence/*.json
+release/
