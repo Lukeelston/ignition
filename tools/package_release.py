@@ -15,6 +15,7 @@ build()
 files = [ROOT / name for name in ['README.md', 'serve.py', 'Launch Ignition.cmd', 'package.json', 'Ignition.html']]
 for directory in ['web', 'samples', 'tests', 'tools', 'docs']:
     files.extend(p for p in (ROOT / directory).rglob('*') if p.is_file() and '__pycache__' not in p.parts)
+files.extend(p for p in (ROOT / 'firmware').rglob('*') if p.is_file() and 'build' not in p.relative_to(ROOT / 'firmware').parts)
 with zipfile.ZipFile(DEST, 'w', zipfile.ZIP_DEFLATED) as archive:
     for path in files:
         archive.write(path, Path('Ignition') / path.relative_to(ROOT))

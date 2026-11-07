@@ -24,7 +24,7 @@ Ignition opens in **Play**, the browser prototype of a handheld toy. **Start eng
 
 **Space** operates the focused trigger; **↑ / ↓** shift and **B** brakes while focus is outside a form input. Mouse and touch controls work too. Releasing, cancelling a pointer, or losing window focus releases momentary controls. Hiding the tab turns toy audio off. **Tune** opens the existing sound-design tools; switching views stops the engine and preserves the patch. Play controls RPM and load dynamically, without overwriting the saved bench settings.
 
-[Handheld layout and ESP implementation map](docs/handheld.md) records the physical controls and port plan. Board identification is awaiting Luke's photo. This release contains the browser toy, **not ESP firmware**.
+[Handheld layout](docs/handheld.md) records the physical controls. [ESP32-S3 firmware and wiring](firmware/README.md) now target the photographed Lonely Binary S3 board, borrowing Iris's MAX98357A amp and speaker. Firmware compilation and host tests pass; upload, physical controls and speaker playback remain unverified.
 
 ## Use the bench (Tune)
 

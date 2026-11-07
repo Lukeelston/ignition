@@ -30,9 +30,9 @@ Verification: neutral revs without motion; first accelerates; upshift drops RPM;
 
 This is an interaction sketch; enclosure dimensions await the actual board, trigger and speaker. A spring-loaded analog trigger provides variable throttle. A thumb rocker or two buttons shifts. A second momentary button brakes. Latching toggles select ignition and boost. A small display or LED arc reports RPM, gear and shift refusal. USB power for bench testing; portable power is a separate enclosure decision.
 
-Board and pins are pending Luke's board choice. Existing sensor-lab notes mention ESP32 boards already serving radar; those notes do not establish that a board is available for this toy. No existing board is reflashed by this project.
+Luke supplied a photo on 2026-11-06. The middle board is marked ESP32-S3-WROOM-1, Lonely Binary Gold Edition, and is the selected target. He authorized borrowing Iris's MAX98357A and donor speaker. See [the firmware wiring guide](../firmware/README.md) for the verified source files, amp mapping and controls. No existing board has been reflashed by this project.
 
-## ESP implementation map (proposed, not firmware)
+## ESP implementation map
 
 | Toy control | Electrical input | Model input |
 | --- | --- | --- |
@@ -44,7 +44,7 @@ Board and pins are pending Luke's board choice. Existing sensor-lab notes mentio
 | Character | Optional 3-position switch | Road / turbine / reactor patch |
 | Volume | Optional potentiometer | Output gain |
 
-Logical input budget: one analog channel and five digital inputs for the core controls. An optional analog volume uses one more ADC input. Display pins and power depend on the photographed board. Select GPIOs against that board's pinout; avoid pins used by flash/PSRAM, its display, USB or boot strapping. Do not copy a pin map between ESP variants.
+Logical input budget: one analog channel and five digital inputs for the core controls, plus one optional momentary character button. An optional analog volume would use one more ADC input. The implemented profile uses the onboard RGB LED and UART readout; no screen driver is included. The firmware guide assigns GPIOs against the photographed board's pinout. Do not copy the map to the classic ESP32.
 
 ```mermaid
 flowchart LR
@@ -54,10 +54,10 @@ flowchart LR
   C --> D[I2S amp / speaker]
 ```
 
-Port the arithmetic and state machine into C++, with preallocated buffers and a separate audio task. Keep the browser as the patch editor. Proposed first audio target: 32 kHz mono, signed 16-bit PCM, 128-sample blocks. A block lasts 4 ms; firmware must measure worst-case generation time below that deadline while controls and display are active. The existing 27 ms reflection delay would use 864 floats = 3,456 bytes at that rate; two mono PCM blocks use 512 bytes, excluding driver buffers, stacks and the rest of the program. This is a sizing calculation, not a measured firmware memory footprint. Test the reduced rate for aliasing and sound quality; current browser audio remains 48 kHz.
+The arithmetic and state machine are now ported to C++, with preallocated buffers and a separate audio task. The browser remains the patch editor. Audio target: 32 kHz synthesis, duplicated mono in 32-bit stereo I²S slots (matching Iris's proven slot format), 128-sample blocks. A block lasts 4 ms; firmware reports generation time and misses against that deadline. The 27 ms reflection delay uses 864 floats = 3,456 bytes. A mono float block plus a stereo int32 block uses 1,536 bytes, excluding driver buffers and stacks. Test the reduced sample rate for sound quality on hardware; browser audio remains 48 kHz.
 
-The synth uses procedural pulses, noise, filters and oscillators rather than sample recordings, so it is a plausible ESP32 workload. That is an engineering assessment, not a board benchmark. Profile first, then use sine tables / cheaper saturation if necessary. Disable radios for the first standalone toy. Give ignition off a short gain ramp, then silence; boot with throttle released and require a fresh ignition edge.
+The synth uses procedural pulses, noise, filters and oscillators rather than sample recordings, plus interpolated sine/saturation tables for the native audio loop. Radios are not initialized. Ignition off fades to silence; startup requires released throttle and a fresh ignition edge after observing off. Native tests and an ESP32-S3 compilation pass. Real-time board performance has not yet been measured.
 
 Espressif's [Arduino I2S API](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/i2s.html) supports configurable clock/data pins and PCM output. Its [ADC documentation](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/adc.html) describes analog reads and notes that channels, pins and voltage ranges differ by chip. A [MAX98357A I2S amplifier](https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/overview) is a candidate output stage; the actual amplifier, speaker and supply remain to be selected. Sources checked 2026-11-06.
 
-Hardware acceptance requires the identified board, actual input controls and an audio capture from its output: stable block timing with zero underruns, working trigger endpoints, one shift per press, no held input after release, audible ignition/shift/boost changes and clean shutdown. **Hardware is unverified — needs user confirmation and a physical bench test.** No firmware has been compiled or flashed in this phase.
+Hardware acceptance requires the identified board, actual input controls and an audio capture from its output: stable block timing, working trigger endpoints, one shift per press, no held input after release, audible ignition/shift/boost changes and clean shutdown. **Hardware is unverified — needs user confirmation and a physical bench test.** Firmware has compiled but has not been flashed.

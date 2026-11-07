@@ -6,3 +6,7 @@ evidence/*.png
 evidence/*.json
 release/
 samples/*.wav
+firmware/build/
+firmware/ignition/build/
+evidence/*.pcm
+evidence/*.csv
