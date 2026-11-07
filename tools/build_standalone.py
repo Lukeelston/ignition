@@ -27,7 +27,7 @@ def build():
     bundle = {'worklet.js': core + '\n' + inline_module('worklet.js'), 'render-worker.js': core + '\n' + inline_module('render-worker.js')}
     # Escape HTML delimiters inside JS strings before embedding the worklet sources.
     configuration = json.dumps(bundle, ensure_ascii=True).replace('<', '\\u003c')
-    script = f'window.IGNITION_BUNDLE={configuration};\n' + core + '\n' + inline_module('app.js')
+    script = f'window.IGNITION_BUNDLE={configuration};\n' + core + '\n' + inline_module('drive.js') + '\n' + inline_module('app.js')
     html = html.replace('</body>', '<script>\n' + script.replace('</script', '<\\/script') + '\n</script>\n</body>')
     output = ROOT / 'Ignition.html'
     output.write_text(html, encoding='utf-8')

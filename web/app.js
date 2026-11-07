@@ -1,10 +1,14 @@
 import {PRESETS,CONTROLS,EngineSynth,validatePatch,serializePatch,parsePatch,trajectory} from './engine.js';
+import {ToyDrive} from './drive.js';
 const $=id=>document.getElementById(id);
 const STORAGE='elston-ignition-patch-v1';
 let patch={...PRESETS[0].patch}, presetId=PRESETS[0].id, patchName=PRESETS[0].name;
 let context=null, node=null, gain=null, analyser=null, compatibilitySynth=null, busy=false, running=false, muted=false;
 let held=false, revStart=null, lastSent=0, currentRPM=0, frame=0, worker=null, workerUrl=null, renderTimer=null, previewUrl=null;
 let scopeData=new Float32Array(1024);
+const drive=new ToyDrive(patch);
+const momentaryResetters=[];
+let playMode=true, throttle=0, braking=false, lastDriveFrame=0;
 const status=(message,error=false)=>{ $('status').textContent=message; $('status').dataset.error=String(error); };
 const format=(value,control)=>control.unit ? `${value.toFixed(control.step<1 ? 1:0)} ${control.unit}` : `${Math.round(value*100)}%`;
 function moduleUrl(name) {
@@ -55,6 +59,7 @@ function renderDial() {
   $('dial-caption').textContent=patch.mode==='combustion' ? `${patch.cylinders} cylinders · ${patch.stroke}-stroke` : patch.mode==='turbine' ? 'Turbine shaft speed' : 'Reactor drive speed';
 }
 function syncUI() {
+  drive.configure(patch);
   $('rpm').max=patch.redline;
   for(const [key,value] of Object.entries(patch)) if($(key)) $(key).value=value;
   $('rpm-value').textContent=Math.round(patch.rpm).toLocaleString();$('load-value').textContent=`${Math.round(patch.load*100)}%`;
@@ -65,7 +70,8 @@ function syncUI() {
 function sendLive() {
   if(!node)return;
   let motion={rpm:patch.rpm,load:patch.load};
-  if(held)motion={rpm:patch.redline,load:1};
+  if(playMode){const state=drive.snapshot();motion={rpm:Math.min(patch.redline,Math.max(350,state.rpm)),load:state.load};}
+  else if(held)motion={rpm:patch.redline,load:1};
   else if(revStart!==null&&context)motion=trajectory(patch,'rev',Math.min(1,(context.currentTime-revStart)/4));
   const livePatch={...patch,...motion};
   if(compatibilitySynth)compatibilitySynth.set(livePatch);
@@ -80,9 +86,9 @@ function change(key,value) {
   } catch(error) { status(error.message,true);syncUI(); }
 }
 function selectPreset(preset) {
-  patch={...preset.patch};presetId=preset.id;patchName=preset.name;releaseRev();
+  patch={...preset.patch};presetId=preset.id;patchName=preset.name;
   $('engine-name').textContent=preset.name;$('engine-family').textContent=preset.family;$('preset-note').textContent=preset.note;
-  syncUI();sendLive();persist();status(`${preset.name} loaded. All controls are yours to change.`);
+  syncUI();releaseRev();persist();status(`${preset.name} loaded. All controls are yours to change.`);
 }
 for(const key of ['rpm','load']) $(key).addEventListener('input',()=>change(key,Number($(key).value)));
 for(const key of ['mode','firing','stroke','cylinders','idle','redline','seed']) $(key).addEventListener('change',()=>change(key,['mode','firing'].includes(key)?$(key).value:Number($(key).value)));
@@ -92,9 +98,11 @@ function stateUI() {
   document.body.dataset.running=String(running);$('ignition').textContent=busy?(running?'Stopping…':'Starting…'):(running?'Stop engine':'Start engine');$('ignition').disabled=busy;
   $('rev').disabled=!running||busy;$('sweep').disabled=!running||busy;
   $('state-label').textContent=running?'Running':'Engine off';
+  for(const id of ['trigger','throttle','brake','gear-up','gear-down'])$(id).disabled=!running||busy;
+  updateDriveUI();
 }
 async function stop() {
-  releaseRev();running=false;cancelAnimationFrame(frame);currentRPM=0;
+  releaseToy();releaseRev();drive.stop();running=false;cancelAnimationFrame(frame);currentRPM=0;
   const old=context;context=null;
   if(old&&old.state!=='closed') {
     gain?.gain.setTargetAtTime(0,old.currentTime,.008);
@@ -112,6 +120,8 @@ async function toggleEngine() {
       $('preview').pause();
       status('Starting audio…');
       context=new AudioContext({sampleRate:48000,latencyHint:'interactive'});
+      if(playMode)drive.start();
+      const startPatch=playMode?{...patch,rpm:350,load:.12}:patch;
       // Unlock on the click itself, before any asynchronous module loading.
       const resumeResult=withDeadline(context.resume(),2500,'The browser did not enable audio. Open Launch Ignition.cmd in Chrome and try again.').then(()=>null,error=>error);
       try {
@@ -121,11 +131,11 @@ async function toggleEngine() {
         const workletUrl=moduleUrl('worklet.js');
         try {await withDeadline(context.audioWorklet.addModule(workletUrl),1200,'Audio module did not load.');}
         finally {releaseModule(workletUrl);}
-        node=new AudioWorkletNode(context,'ignition-engine',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1],processorOptions:{patch}});
+        node=new AudioWorkletNode(context,'ignition-engine',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1],processorOptions:{patch:startPatch}});
         node.port.onmessage=({data})=>{if(data.error)status(data.error,true);else currentRPM=data.rpm;};
         node.onprocessorerror=()=>{status('The audio engine stopped. Restart the engine to recover.',true);stop().catch(()=>{});};
       } catch {
-        compatibilitySynth=new EngineSynth(patch,context.sampleRate);
+        compatibilitySynth=new EngineSynth(startPatch,context.sampleRate);
         node=context.createScriptProcessor(2048,0,1);
         node.onaudioprocess=event=>{
           if(!compatibilitySynth)return;
@@ -137,12 +147,68 @@ async function toggleEngine() {
       scopeData=new Float32Array(analyser.fftSize);node.connect(gain);gain.connect(analyser);analyser.connect(context.destination);
       const resumeError=await resumeResult;if(resumeError)throw resumeError;
       running=true;gain.gain.setTargetAtTime(muted?0:Number($('volume').value),context.currentTime,.035);
-      status('Engine running. Hold to rev, or shape the sound live.');frame=requestAnimationFrame(animate);
+      status(playMode?'Ignition on. Tap gear + for first, then squeeze the trigger.':'Engine running. Hold to rev, or shape the sound live.');lastDriveFrame=performance.now();frame=requestAnimationFrame(animate);
     }
   } catch(error) { await stop();status(`Could not start audio: ${error.message}`,true); }
-  finally {busy=false;stateUI();}
+  finally {busy=false;stateUI();if(running&&playMode)$('trigger').focus({preventScroll:true});}
 }
 $('ignition').addEventListener('click',toggleEngine);
+function setThrottle(value) {
+  throttle=running?Math.max(0,Math.min(1,value)):0;
+  $('throttle').value=throttle;$('throttle-value').textContent=`${Math.round(throttle*100)}%`;
+  $('trigger').setAttribute('aria-pressed',String(throttle>0));
+}
+function setBrake(value) {braking=running&&value;$('brake').setAttribute('aria-pressed',String(braking));}
+function releaseToy() {for(const reset of momentaryResetters)reset();setThrottle(0);setBrake(false);}
+function updateDriveUI() {
+  const state=drive.snapshot();
+  $('gear-readout').textContent=state.gear||'N';$('speed-readout').textContent=Math.round(state.speed);
+  $('drive-indicator').textContent=state.state==='off'?'IGNITION OFF':state.state==='cranking'?'CRANKING':state.shifting?'SHIFTING':state.limiter?'REV LIMIT':braking?'BRAKING':$('boost').checked?'BOOST ON':state.gear?'IN GEAR':'NEUTRAL';
+  if(playMode&&running)$('state-label').textContent=state.state==='cranking'?'Cranking…':'Running';
+}
+function shiftGear(direction) {
+  if(!running||!playMode)return;
+  if(drive.shift(direction)){status(`Gear ${drive.gear||'N'}. ${drive.gear?'Squeeze to accelerate.':'Free rev; no drive.'}`);$('trigger').focus({preventScroll:true});}
+  else if(drive.notice)status(drive.notice);
+  updateDriveUI();
+}
+function momentary(button,press,release) {
+  let pointerHeld=false, keyHeld=false;
+  momentaryResetters.push(()=>{pointerHeld=false;keyHeld=false;});
+  button.addEventListener('pointerdown',event=>{if(button.disabled)return;event.preventDefault();pointerHeld=true;button.setPointerCapture(event.pointerId);press();});
+  for(const type of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(type,()=>{pointerHeld=false;if(!keyHeld)release();});
+  button.addEventListener('blur',()=>{keyHeld=false;if(!pointerHeld)release();});
+  button.addEventListener('keydown',event=>{if([' ','Enter'].includes(event.key)){event.preventDefault();if(!event.repeat){keyHeld=true;press();}}});
+  button.addEventListener('keyup',event=>{if([' ','Enter'].includes(event.key)){event.preventDefault();keyHeld=false;if(!pointerHeld)release();}});
+}
+momentary($('trigger'),()=>setThrottle(1),()=>setThrottle(0));
+momentary($('brake'),()=>setBrake(true),()=>setBrake(false));
+$('throttle').addEventListener('input',()=>setThrottle(Number($('throttle').value)));
+for(const type of ['pointerup','pointercancel','lostpointercapture','blur'])$('throttle').addEventListener(type,()=>setThrottle(0));
+$('throttle').addEventListener('keyup',()=>setThrottle(0));
+$('gear-up').addEventListener('click',()=>shiftGear(1));$('gear-down').addEventListener('click',()=>shiftGear(-1));
+$('boost').addEventListener('change',updateDriveUI);
+function keyboardToy(event,pressed) {
+  if(!playMode)return;
+  // Release even if focus moved since the key was pressed.
+  if(!pressed){if(event.defaultPrevented)return;if(event.code==='Space')setThrottle(0);if(event.code==='KeyB')setBrake(false);return;}
+  if(event.defaultPrevented||event.target.closest('input,select,textarea,a,[contenteditable=true]')||event.ctrlKey||event.metaKey||event.altKey)return;
+  if(event.code==='Space'&&event.target.closest('button'))return;
+  if(['Space','KeyB','ArrowUp','ArrowDown'].includes(event.code))event.preventDefault();
+  if(event.repeat)return;
+  if(event.code==='Space')setThrottle(1);if(event.code==='KeyB')setBrake(true);
+  if(event.code==='ArrowUp')shiftGear(1);if(event.code==='ArrowDown')shiftGear(-1);
+}
+window.addEventListener('keydown',event=>keyboardToy(event,true));window.addEventListener('keyup',event=>keyboardToy(event,false));
+window.addEventListener('blur',releaseToy);document.addEventListener('visibilitychange',()=>{if(document.hidden){releaseToy();if(playMode&&running&&!busy)toggleEngine();}});
+async function setView(play) {
+  if(busy||play===playMode)return;
+  $('preview').pause();
+  busy=true;stateUI();
+  try {await stop();playMode=play;document.body.dataset.view=play?'play':'tune';$('play-mode').setAttribute('aria-pressed',String(play));$('tune-mode').setAttribute('aria-pressed',String(!play));status(play?'Ready to play. Start in neutral, shift into first and squeeze.':'Sound-design bench. Set RPM and load, or shape a patch for the toy.');}
+  finally {busy=false;stateUI();}
+}
+$('play-mode').addEventListener('click',()=>setView(true));$('tune-mode').addEventListener('click',()=>setView(false));
 function holdRev() {if(!running)return;held=true;revStart=null;$('rev').setAttribute('aria-pressed','true');sendLive();}
 function releaseRev() {held=false;revStart=null;$('rev').setAttribute('aria-pressed','false');sendLive();}
 $('rev').addEventListener('pointerdown',event=>{event.preventDefault();$('rev').focus();$('rev').setPointerCapture(event.pointerId);holdRev();});
@@ -166,6 +232,7 @@ function draw() {
 }
 function animate(now) {
   if(!running)return;
+  if(playMode){drive.step(Math.max(0,(now-lastDriveFrame)/1000),{throttle,brake:braking,boost:$('boost').checked});lastDriveFrame=now;updateDriveUI();if(now-lastSent>20){sendLive();lastSent=now;}}
   if(revStart!==null&&context) {if(context.currentTime-revStart>=4)releaseRev();else if(now-lastSent>40){sendLive();lastSent=now;}}
   draw();frame=requestAnimationFrame(animate);
 }
@@ -180,8 +247,8 @@ $('patch-file').addEventListener('change',async()=>{
   try {
     if(file.size>32768)throw new Error('Patch files must be smaller than 32 KB.');
     const loaded=parsePatch(await file.text());
-    patch=loaded;presetId=null;patchName='Loaded patch';releaseRev();$('engine-name').textContent='Custom engine';$('engine-family').textContent='Your patch';$('preset-note').textContent='A saved engine, ready for another experiment.';
-    syncUI();sendLive();persist();status('Patch loaded.');
+    patch=loaded;presetId=null;patchName='Loaded patch';$('engine-name').textContent='Custom engine';$('engine-family').textContent='Your patch';$('preset-note').textContent='A saved engine, ready for another experiment.';
+    syncUI();releaseRev();persist();status('Patch loaded.');
   } catch(error) {status(`Patch not loaded: ${error.message}`,true);}
   finally {$('patch-file').value='';}
 });
@@ -235,4 +302,4 @@ try {
 } catch {
   selectPreset(PRESETS[0]);status('The saved patch could not be restored. Loaded the V8 starting point.',true);
 }
-draw();
+stateUI();draw();

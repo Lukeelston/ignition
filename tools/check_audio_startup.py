@@ -21,6 +21,7 @@ def main():
                 # still generate real audio through a native AudioContext.
                 page.add_init_script("AudioWorklet.prototype.addModule = async () => { throw new DOMException('Module loading unavailable', 'SecurityError'); };")
                 page.goto(url)
+                page.get_by_role('button', name='Tune', exact=True).click()
                 page.get_by_role('button', name='Start engine', exact=True).click()
                 page.wait_for_function("document.body.dataset.running === 'true'", timeout=5000)
                 page.wait_for_function("Number(document.querySelector('#rpm-readout').textContent.replace(/,/g,'')) > 900 && parseFloat(document.querySelector('#output-level').textContent) > -80", timeout=5000)

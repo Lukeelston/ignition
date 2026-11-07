@@ -13,15 +13,23 @@
 @media(max-width:760px){main{padding:20px 16px 0}.masthead{padding:19px 20px}.identity h1{font-size:32px}.local-badge{font-size:10px}.presets{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-bottom:17px}.preset{font-size:11px;padding:9px 7px;min-height:66px}.preset span{font-size:9px}.section-line h2{font-size:16px}.section-line>span{font-size:11px}.workbench{grid-template-columns:1fr}.dyno{padding:22px}.dial-wrap{max-width:380px}.designer{padding:23px 20px}.architecture{grid-template-columns:1.3fr .8fr 1.2fr}.export-bench{padding:20px;gap:18px}.export-title h2{font-size:21px}.export-controls{flex-wrap:wrap;gap:10px}.export-controls label:first-child{min-width:130px}.export-controls .render{width:100%;margin-top:3px;min-height:42px}.render-result{flex-wrap:wrap;gap:12px}.render-result audio{width:100%}.status-row{display:block;font-size:11px}#patch-state{display:block;margin-top:7px}footer{padding:15px 18px 24px;flex-wrap:wrap;gap:12px}footer>span:nth-child(2){order:3;flex-basis:100%;margin:0;font-size:10px}footer button{margin-left:auto}}
 @media(max-width:380px){.architecture{grid-template-columns:1fr 1fr}.local-badge{display:none}.dyno{padding:18px}.presets{grid-template-columns:repeat(2,1fr)}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+.view-switch{display:flex;align-items:center;gap:5px;margin-bottom:22px}.view-switch button{min-width:92px;border-radius:30px;padding:10px 22px}.view-switch button[aria-pressed=true]{background:var(--navy);border-color:var(--navy);color:white}.view-switch>span{margin-left:auto;text-transform:uppercase;letter-spacing:1.5px;font-size:10px;color:var(--muted)}.view-switch b{color:var(--blue);margin-left:8px}
+body[data-view=play] .workbench{display:block;max-width:660px;margin:auto}body[data-view=play] .dyno{border-radius:32px 32px 54px 54px;border:6px solid #2e4858;box-shadow:0 9px 0 #102532,0 20px 35px #172d3b20;padding:25px 36px}body[data-view=play] .designer,body[data-view=play] .export-bench,body[data-view=play] .live-controls,body[data-view=play] #rev,body[data-view=play] #sweep,body[data-view=play] .tune-help{display:none}body[data-view=tune] .toy-controls,body[data-view=tune] .play-help{display:none}body[data-view=play] .transport{grid-template-columns:1fr}body[data-view=play] .dial-wrap{max-width:350px;margin:-6px auto -16px}body[data-view=play] .preset-note{min-height:0}body[data-view=play] .scope-box{margin-top:12px}body[data-view=play] #scope{height:35px}body[data-view=play] .start{font-size:14px;padding:14px}
+.drive-display{display:grid;grid-template-columns:75px 1fr 110px;align-items:center;border:1px solid #405c6c;background:#102632;border-radius:10px;padding:14px 20px;gap:12px;margin:0 0 16px}.drive-display>div>span{display:block;font-size:9px;letter-spacing:1.6px;color:#9cb5c3}.drive-display strong{font:36px Bahnschrift,sans-serif;color:var(--yellow);line-height:1.2;font-variant-numeric:tabular-nums}.drive-display small{font:10px 'Segoe UI',sans-serif;color:#9cb5c3;margin-left:7px}.drive-indicator{text-align:right;font-size:10px;letter-spacing:1.3px;color:#b6d6d8;line-height:1.6}.thumb-controls{display:grid;grid-template-columns:1fr 1fr 1.1fr;gap:9px}.thumb-controls button{color:#dce7ed;background:#304b5d;border-color:#526f80;font:28px Bahnschrift,sans-serif;border-bottom:4px solid #0c1f2a;padding:9px}.thumb-controls button span{font:10px 'Segoe UI',sans-serif;letter-spacing:2px;vertical-align:middle;margin-left:8px}.thumb-controls button:hover:not(:disabled){background:#3f6075}.boost-switch{display:flex;justify-content:center;align-items:center;gap:9px;cursor:pointer;border:1px solid #536c7a;border-radius:5px;font-size:10px;letter-spacing:1px}.boost-switch input{position:absolute;opacity:0;width:1px;height:1px}.boost-switch i{width:22px;height:36px;border-radius:4px;border:1px solid #6b8390;background:#102632;position:relative}.boost-switch i:after{content:'';position:absolute;left:3px;right:3px;bottom:3px;height:13px;background:#8a9faa;border-radius:2px;box-shadow:0 2px 2px #0008}.boost-switch:has(input:checked) i:after{bottom:18px;background:var(--yellow)}.boost-switch:has(input:focus-visible){outline:3px solid var(--yellow);outline-offset:3px}
+.trigger-panel{padding:18px 0 15px}.trigger-panel .slider-label{font-size:13px}.trigger-panel input[type=range]{height:30px;margin:5px 0 9px;touch-action:none}.trigger-panel input[type=range]::-webkit-slider-thumb{width:22px;height:26px;border-radius:5px;margin-top:-11px}.pedals{display:grid;grid-template-columns:1.9fr 1fr;gap:9px}.pedals button{padding:18px 8px;background:#102632;color:#cddfe6;border:1px solid #546e7d;border-bottom:4px solid #091922;touch-action:none;user-select:none}.pedals button:hover:not(:disabled){background:#233f50}.pedals button[aria-pressed=true]{background:var(--yellow);color:var(--navy);border-color:var(--yellow)}.pedals #brake[aria-pressed=true]{background:#cf765d;border-color:#cf765d;color:#172d3b}kbd{font:8px 'Segoe UI',sans-serif;display:inline-block;margin-left:8px;opacity:.7;letter-spacing:1px}#trigger-help{font-size:10px;line-height:1.5;color:#91adbd;margin-top:9px}
+@media(max-width:760px){body[data-view=play] .dyno{padding:21px 20px;border-width:4px;border-radius:26px 26px 40px 40px}.drive-display{grid-template-columns:52px 1fr 80px;padding:12px;gap:9px}.drive-display strong{font-size:32px}.drive-indicator{font-size:9px}.view-switch>span{font-size:8px;max-width:100px;text-align:right}.view-switch button{min-width:76px}.boost-switch{gap:7px}.thumb-controls button span{margin-left:2px;font-size:9px}.pedals button{font-size:12px}kbd{font-size:7px;margin-left:3px}}
+body[data-view=play] .masthead{padding-top:16px;padding-bottom:16px}body[data-view=play] main{padding-top:16px}body[data-view=play] .view-switch{margin-bottom:14px}body[data-view=play] .preset-section .section-line{display:none}body[data-view=play] .presets{display:flex;overflow-x:auto;gap:6px;padding-bottom:5px;margin-bottom:16px}body[data-view=play] .preset{flex:1 0 108px;min-height:54px;padding:10px}body[data-view=play] .preset span{margin-top:4px}body[data-view=play] .dial-wrap{max-width:250px;margin:0 auto -9px}body[data-view=play] .preset-note,body[data-view=play] .scope-box{display:none}body[data-view=play] .dyno{max-width:580px;margin:auto;padding:22px 28px}body[data-view=play] .bench-heading h2{font-size:22px}body[data-view=play] .monitor{margin-top:10px}body[data-view=play] .play-help{margin-top:14px}body[data-view=play] #status{min-height:18px;margin-top:9px}body[data-view=play] .status-row{max-width:580px;margin:18px auto 0}
+@media(max-width:760px){body[data-view=play] .masthead{padding:12px 18px}body[data-view=play] .identity h1{font-size:28px}body[data-view=play] main{padding:12px 12px 0}body[data-view=play] .view-switch{margin-bottom:10px}body[data-view=play] .view-switch button{padding:8px 18px}body[data-view=play] .presets{margin-bottom:10px}body[data-view=play] .preset{flex-basis:99px;min-height:48px;padding:8px}body[data-view=play] .dyno{padding:17px 19px}body[data-view=play] .dial-wrap{max-width:185px;margin:-3px auto -4px}body[data-view=play] .bench-heading h2{font-size:20px}body[data-view=play] .drive-display{padding:9px 12px;margin-bottom:10px}body[data-view=play] .trigger-panel{padding:12px 0}body[data-view=play] .pedals button{padding:13px 5px}body[data-view=play] .start{padding:11px}body[data-view=play] #status{font-size:11px}body[data-view=play] .play-help{font-size:10px;margin-top:9px}body[data-view=play] .monitor{gap:9px}}
 </style>
 </head>
-<body data-running="false">
+<body data-running="false" data-view="play">
 <header class="masthead">
   <div class="identity"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M9 6h22v12H9zM14 10h12M20 18v10m-8 5a8 8 0 1 1 16 0"/></svg><div><h1>Ignition</h1><span>by Elston Works</span></div></div>
-  <div class="masthead-note">Engine sound workbench<span>From a cold idle to another world.</span></div>
+  <div class="masthead-note">An engine in your hand.<span>Squeeze. Shift. Make unreasonable noises.</span></div>
   <span class="local-badge"><i></i> Local synthesis</span>
 </header>
 <main>
+  <nav class="view-switch" aria-label="Ignition mode"><button id="play-mode" aria-pressed="true">Play</button><button id="tune-mode" aria-pressed="false">Tune</button><span>Handheld prototype <b>01</b></span></nav>
   <section class="preset-section" aria-label="Engine starting points"><div class="section-line"><h2>Choose a starting point</h2><span>Then make it yours.</span></div><div id="presets" class="presets"></div></section>
   <div class="workbench">
     <section class="dyno" aria-label="Live engine bench">
@@ -29,6 +37,11 @@
       <p id="preset-note" class="preset-note"></p>
       <div class="dial-wrap">
         <svg class="tachometer" viewBox="0 0 440 345" role="img" aria-label="Engine tachometer"><g id="dial-ticks"></g><g id="needle" transform="rotate(-130 220 170)"><path d="M217 182 220 42 223 182Z" fill="#f5cc4e"/></g><circle cx="220" cy="170" r="14" fill="#172d3b" stroke="#94a7b2" stroke-width="2"/><circle cx="220" cy="170" r="4" fill="#f5cc4e"/><text x="220" y="256" id="rpm-readout" class="rpm-readout" text-anchor="middle">0</text><text x="220" y="281" text-anchor="middle" class="dial-unit">RPM</text><text x="220" y="323" text-anchor="middle" class="dial-caption" id="dial-caption">8 cylinders · 4-stroke</text></svg>
+      </div>
+      <div class="toy-controls">
+        <div class="drive-display"><div><span>GEAR</span><strong id="gear-readout">N</strong></div><div><span>VIRTUAL SPEED</span><strong><span id="speed-readout">0</span><small>km/h</small></strong></div><div class="drive-indicator" id="drive-indicator">IGNITION OFF</div></div>
+        <div class="thumb-controls"><button id="gear-down" aria-label="Gear down">− <span>GEAR</span></button><button id="gear-up" aria-label="Gear up">+ <span>GEAR</span></button><label class="boost-switch"><input id="boost" type="checkbox"><span>BOOST</span><i aria-hidden="true"></i></label></div>
+        <div class="trigger-panel"><label class="slider-label" for="throttle"><span>Throttle trigger</span><output id="throttle-value">0%</output></label><input id="throttle" type="range" min="0" max="1" step=".01" value="0" aria-describedby="trigger-help"><div class="pedals"><button id="trigger" aria-pressed="false">Squeeze trigger <kbd>SPACE</kbd></button><button id="brake" aria-pressed="false">Brake <kbd>B</kbd></button></div><p id="trigger-help">Drag for partial throttle. Release to idle. ↑ / ↓ shift gears.</p></div>
       </div>
       <div class="live-controls">
         <label class="slider-label" for="rpm"><span>Target RPM</span><output id="rpm-value">950</output></label><input type="range" id="rpm" min="350" max="7000" step="10" value="950">
@@ -38,7 +51,8 @@
       <p id="status" role="status" aria-live="polite">Ready. Start an engine or render a sound.</p>
       <div class="monitor"><label for="volume">Monitor</label><input id="volume" aria-label="Monitor volume" type="range" min="0" max=".8" step=".01" value=".25"><output id="volume-value">25%</output><button id="mute" aria-pressed="false" title="Mute live monitoring">Mute</button></div>
       <div class="scope-box"><div><span>Output waveform</span><span id="output-level">— dBFS</span></div><canvas id="scope" width="700" height="130" aria-label="Live output waveform"></canvas></div>
-      <p class="bench-help">Hold the rev button with your mouse, touch, Space or Enter. Release to return to your target RPM.</p>
+      <p class="bench-help tune-help">Hold the rev button with your mouse, touch, Space or Enter. Release to return to your target RPM.</p>
+      <p class="bench-help play-help">Start in neutral. Tap + for first, then squeeze. Auto clutch; no footwork required. Tune opens the sound-design bench.</p>
     </section>
     <section class="designer" aria-labelledby="designer-title">
       <div class="designer-heading"><h2 id="designer-title">Build the character</h2><button id="reset" class="text-button">Reset preset</button></div>
@@ -248,12 +262,76 @@ function encodeWav(samples, sampleRate=48000) {
   }
   return buffer;
 }
+// Portable control model: seconds, km/h, RPM, normalized throttle/load.
+// No DOM, timers, audio APIs or random state. Firmware can run this at 100 Hz.
+const DRIVE_RATIOS=[0,3.2,2.1,1.55,1.23,1.02,.85];
+const driveClamp=(x,lo,hi)=>Math.max(lo,Math.min(hi,x));
+class ToyDrive {
+  constructor(config={}) {this.configure(config);this.stop();}
+  configure({idle=750,redline=7000,response=.55}={}) {
+    if(![idle,redline,response].every(Number.isFinite)||idle<350||redline<=idle||response<.1||response>1)throw new Error('Invalid drive limits.');
+    this.idle=idle;this.redline=redline;this.response=response;
+    if(this.rpm>redline)this.rpm=redline;
+  }
+  stop() {
+    this.state='off';this.gear=0;this.speed=0;this.rpm=0;this.load=0;
+    this.crank=0;this.shiftTime=0;this.elapsed=0;this.limiter=false;this.notice='';
+  }
+  start() {this.stop();this.state='cranking';this.rpm=350;}
+  shift(direction) {
+    if(this.state!=='running'||this.shiftTime>0||![-1,1].includes(direction))return false;
+    const next=this.gear+direction;
+    if(next<0||next>=DRIVE_RATIOS.length)return false;
+    if(direction<0&&next>0&&this.speed*DRIVE_RATIOS[next]*48>this.redline*.98){this.notice='Over-rev · brake before downshifting';return false;}
+    this.gear=next;this.shiftTime=.18;this.notice='';return true;
+  }
+  step(seconds,{throttle=0,brake=false,boost=false}={}) {
+    if(!Number.isFinite(seconds)||seconds<0)throw new Error('Invalid drive time.');
+    if(!Number.isFinite(throttle))throw new Error('Invalid throttle.');
+    throttle=driveClamp(throttle,0,1);
+    // Cap catch-up after a suspended browser; never jump the toy forward minutes.
+    let remaining=Math.min(seconds,.25);
+    while(remaining>1e-8){const dt=Math.min(.01,remaining);this.tick(dt,throttle,brake,boost);remaining-=dt;}
+    return this.snapshot();
+  }
+  tick(dt,throttle,brake,boost) {
+    if(this.state==='off')return;
+    this.elapsed+=dt;
+    if(this.state==='cranking') {
+      this.crank+=dt;this.rpm=350+70*Math.sin(this.crank*35);this.load=.12;
+      if(this.crank>=.65){this.state='running';this.rpm=this.idle;}
+      return;
+    }
+    this.shiftTime=Math.max(0,this.shiftTime-dt);
+    const ratio=DRIVE_RATIOS[this.gear], shifting=this.shiftTime>0;
+    const driveThrottle=shifting||brake?0:throttle;
+    if(ratio) {
+      const wheelRPM=this.speed*ratio*48;
+      const torque=Math.max(.15,1-.5*wheelRPM/this.redline);
+      const acceleration=driveThrottle*(boost?1.5:1)*16*(ratio/3.2)*torque;
+      const drag=.35+this.speed*.012+(1-driveThrottle)*2.5;
+      this.speed=driveClamp(this.speed+(acceleration-drag-(brake?30:0))*dt,0,this.redline/(ratio*48));
+    } else this.speed=Math.max(0,this.speed-(.5+this.speed*.012+(brake?30:0))*dt);
+    const target=ratio?Math.max(this.idle,this.speed*ratio*48):this.idle+(this.redline-this.idle)*Math.pow(driveThrottle,.7);
+    this.rpm+=(target-this.rpm)*(1-Math.exp(-dt/(shifting?.07:.10+(1-this.response)*.20)));
+    this.rpm=driveClamp(this.rpm,this.idle,this.redline);
+    this.limiter=this.rpm>this.redline*.975&&throttle>.8;
+    const cut=this.limiter&&this.elapsed%.1<.035;
+    this.load=shifting||cut?.05:driveClamp(.12+driveThrottle*(ratio?.88:.65),0,1);
+  }
+  snapshot() {
+    return {state:this.state,gear:this.gear,speed:this.speed,rpm:this.rpm,load:this.load,shifting:this.shiftTime>0,limiter:this.limiter,notice:this.notice};
+  }
+}
 const $=id=>document.getElementById(id);
 const STORAGE='elston-ignition-patch-v1';
 let patch={...PRESETS[0].patch}, presetId=PRESETS[0].id, patchName=PRESETS[0].name;
 let context=null, node=null, gain=null, analyser=null, compatibilitySynth=null, busy=false, running=false, muted=false;
 let held=false, revStart=null, lastSent=0, currentRPM=0, frame=0, worker=null, workerUrl=null, renderTimer=null, previewUrl=null;
 let scopeData=new Float32Array(1024);
+const drive=new ToyDrive(patch);
+const momentaryResetters=[];
+let playMode=true, throttle=0, braking=false, lastDriveFrame=0;
 const status=(message,error=false)=>{ $('status').textContent=message; $('status').dataset.error=String(error); };
 const format=(value,control)=>control.unit ? `${value.toFixed(control.step<1 ? 1:0)} ${control.unit}` : `${Math.round(value*100)}%`;
 function moduleUrl(name) {
@@ -304,6 +382,7 @@ function renderDial() {
   $('dial-caption').textContent=patch.mode==='combustion' ? `${patch.cylinders} cylinders · ${patch.stroke}-stroke` : patch.mode==='turbine' ? 'Turbine shaft speed' : 'Reactor drive speed';
 }
 function syncUI() {
+  drive.configure(patch);
   $('rpm').max=patch.redline;
   for(const [key,value] of Object.entries(patch)) if($(key)) $(key).value=value;
   $('rpm-value').textContent=Math.round(patch.rpm).toLocaleString();$('load-value').textContent=`${Math.round(patch.load*100)}%`;
@@ -314,7 +393,8 @@ function syncUI() {
 function sendLive() {
   if(!node)return;
   let motion={rpm:patch.rpm,load:patch.load};
-  if(held)motion={rpm:patch.redline,load:1};
+  if(playMode){const state=drive.snapshot();motion={rpm:Math.min(patch.redline,Math.max(350,state.rpm)),load:state.load};}
+  else if(held)motion={rpm:patch.redline,load:1};
   else if(revStart!==null&&context)motion=trajectory(patch,'rev',Math.min(1,(context.currentTime-revStart)/4));
   const livePatch={...patch,...motion};
   if(compatibilitySynth)compatibilitySynth.set(livePatch);
@@ -329,9 +409,9 @@ function change(key,value) {
   } catch(error) { status(error.message,true);syncUI(); }
 }
 function selectPreset(preset) {
-  patch={...preset.patch};presetId=preset.id;patchName=preset.name;releaseRev();
+  patch={...preset.patch};presetId=preset.id;patchName=preset.name;
   $('engine-name').textContent=preset.name;$('engine-family').textContent=preset.family;$('preset-note').textContent=preset.note;
-  syncUI();sendLive();persist();status(`${preset.name} loaded. All controls are yours to change.`);
+  syncUI();releaseRev();persist();status(`${preset.name} loaded. All controls are yours to change.`);
 }
 for(const key of ['rpm','load']) $(key).addEventListener('input',()=>change(key,Number($(key).value)));
 for(const key of ['mode','firing','stroke','cylinders','idle','redline','seed']) $(key).addEventListener('change',()=>change(key,['mode','firing'].includes(key)?$(key).value:Number($(key).value)));
@@ -341,9 +421,11 @@ function stateUI() {
   document.body.dataset.running=String(running);$('ignition').textContent=busy?(running?'Stopping…':'Starting…'):(running?'Stop engine':'Start engine');$('ignition').disabled=busy;
   $('rev').disabled=!running||busy;$('sweep').disabled=!running||busy;
   $('state-label').textContent=running?'Running':'Engine off';
+  for(const id of ['trigger','throttle','brake','gear-up','gear-down'])$(id).disabled=!running||busy;
+  updateDriveUI();
 }
 async function stop() {
-  releaseRev();running=false;cancelAnimationFrame(frame);currentRPM=0;
+  releaseToy();releaseRev();drive.stop();running=false;cancelAnimationFrame(frame);currentRPM=0;
   const old=context;context=null;
   if(old&&old.state!=='closed') {
     gain?.gain.setTargetAtTime(0,old.currentTime,.008);
@@ -361,6 +443,8 @@ async function toggleEngine() {
       $('preview').pause();
       status('Starting audio…');
       context=new AudioContext({sampleRate:48000,latencyHint:'interactive'});
+      if(playMode)drive.start();
+      const startPatch=playMode?{...patch,rpm:350,load:.12}:patch;
       // Unlock on the click itself, before any asynchronous module loading.
       const resumeResult=withDeadline(context.resume(),2500,'The browser did not enable audio. Open Launch Ignition.cmd in Chrome and try again.').then(()=>null,error=>error);
       try {
@@ -370,11 +454,11 @@ async function toggleEngine() {
         const workletUrl=moduleUrl('worklet.js');
         try {await withDeadline(context.audioWorklet.addModule(workletUrl),1200,'Audio module did not load.');}
         finally {releaseModule(workletUrl);}
-        node=new AudioWorkletNode(context,'ignition-engine',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1],processorOptions:{patch}});
+        node=new AudioWorkletNode(context,'ignition-engine',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1],processorOptions:{patch:startPatch}});
         node.port.onmessage=({data})=>{if(data.error)status(data.error,true);else currentRPM=data.rpm;};
         node.onprocessorerror=()=>{status('The audio engine stopped. Restart the engine to recover.',true);stop().catch(()=>{});};
       } catch {
-        compatibilitySynth=new EngineSynth(patch,context.sampleRate);
+        compatibilitySynth=new EngineSynth(startPatch,context.sampleRate);
         node=context.createScriptProcessor(2048,0,1);
         node.onaudioprocess=event=>{
           if(!compatibilitySynth)return;
@@ -386,12 +470,68 @@ async function toggleEngine() {
       scopeData=new Float32Array(analyser.fftSize);node.connect(gain);gain.connect(analyser);analyser.connect(context.destination);
       const resumeError=await resumeResult;if(resumeError)throw resumeError;
       running=true;gain.gain.setTargetAtTime(muted?0:Number($('volume').value),context.currentTime,.035);
-      status('Engine running. Hold to rev, or shape the sound live.');frame=requestAnimationFrame(animate);
+      status(playMode?'Ignition on. Tap gear + for first, then squeeze the trigger.':'Engine running. Hold to rev, or shape the sound live.');lastDriveFrame=performance.now();frame=requestAnimationFrame(animate);
     }
   } catch(error) { await stop();status(`Could not start audio: ${error.message}`,true); }
-  finally {busy=false;stateUI();}
+  finally {busy=false;stateUI();if(running&&playMode)$('trigger').focus({preventScroll:true});}
 }
 $('ignition').addEventListener('click',toggleEngine);
+function setThrottle(value) {
+  throttle=running?Math.max(0,Math.min(1,value)):0;
+  $('throttle').value=throttle;$('throttle-value').textContent=`${Math.round(throttle*100)}%`;
+  $('trigger').setAttribute('aria-pressed',String(throttle>0));
+}
+function setBrake(value) {braking=running&&value;$('brake').setAttribute('aria-pressed',String(braking));}
+function releaseToy() {for(const reset of momentaryResetters)reset();setThrottle(0);setBrake(false);}
+function updateDriveUI() {
+  const state=drive.snapshot();
+  $('gear-readout').textContent=state.gear||'N';$('speed-readout').textContent=Math.round(state.speed);
+  $('drive-indicator').textContent=state.state==='off'?'IGNITION OFF':state.state==='cranking'?'CRANKING':state.shifting?'SHIFTING':state.limiter?'REV LIMIT':braking?'BRAKING':$('boost').checked?'BOOST ON':state.gear?'IN GEAR':'NEUTRAL';
+  if(playMode&&running)$('state-label').textContent=state.state==='cranking'?'Cranking…':'Running';
+}
+function shiftGear(direction) {
+  if(!running||!playMode)return;
+  if(drive.shift(direction)){status(`Gear ${drive.gear||'N'}. ${drive.gear?'Squeeze to accelerate.':'Free rev; no drive.'}`);$('trigger').focus({preventScroll:true});}
+  else if(drive.notice)status(drive.notice);
+  updateDriveUI();
+}
+function momentary(button,press,release) {
+  let pointerHeld=false, keyHeld=false;
+  momentaryResetters.push(()=>{pointerHeld=false;keyHeld=false;});
+  button.addEventListener('pointerdown',event=>{if(button.disabled)return;event.preventDefault();pointerHeld=true;button.setPointerCapture(event.pointerId);press();});
+  for(const type of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(type,()=>{pointerHeld=false;if(!keyHeld)release();});
+  button.addEventListener('blur',()=>{keyHeld=false;if(!pointerHeld)release();});
+  button.addEventListener('keydown',event=>{if([' ','Enter'].includes(event.key)){event.preventDefault();if(!event.repeat){keyHeld=true;press();}}});
+  button.addEventListener('keyup',event=>{if([' ','Enter'].includes(event.key)){event.preventDefault();keyHeld=false;if(!pointerHeld)release();}});
+}
+momentary($('trigger'),()=>setThrottle(1),()=>setThrottle(0));
+momentary($('brake'),()=>setBrake(true),()=>setBrake(false));
+$('throttle').addEventListener('input',()=>setThrottle(Number($('throttle').value)));
+for(const type of ['pointerup','pointercancel','lostpointercapture','blur'])$('throttle').addEventListener(type,()=>setThrottle(0));
+$('throttle').addEventListener('keyup',()=>setThrottle(0));
+$('gear-up').addEventListener('click',()=>shiftGear(1));$('gear-down').addEventListener('click',()=>shiftGear(-1));
+$('boost').addEventListener('change',updateDriveUI);
+function keyboardToy(event,pressed) {
+  if(!playMode)return;
+  // Release even if focus moved since the key was pressed.
+  if(!pressed){if(event.defaultPrevented)return;if(event.code==='Space')setThrottle(0);if(event.code==='KeyB')setBrake(false);return;}
+  if(event.defaultPrevented||event.target.closest('input,select,textarea,a,[contenteditable=true]')||event.ctrlKey||event.metaKey||event.altKey)return;
+  if(event.code==='Space'&&event.target.closest('button'))return;
+  if(['Space','KeyB','ArrowUp','ArrowDown'].includes(event.code))event.preventDefault();
+  if(event.repeat)return;
+  if(event.code==='Space')setThrottle(1);if(event.code==='KeyB')setBrake(true);
+  if(event.code==='ArrowUp')shiftGear(1);if(event.code==='ArrowDown')shiftGear(-1);
+}
+window.addEventListener('keydown',event=>keyboardToy(event,true));window.addEventListener('keyup',event=>keyboardToy(event,false));
+window.addEventListener('blur',releaseToy);document.addEventListener('visibilitychange',()=>{if(document.hidden){releaseToy();if(playMode&&running&&!busy)toggleEngine();}});
+async function setView(play) {
+  if(busy||play===playMode)return;
+  $('preview').pause();
+  busy=true;stateUI();
+  try {await stop();playMode=play;document.body.dataset.view=play?'play':'tune';$('play-mode').setAttribute('aria-pressed',String(play));$('tune-mode').setAttribute('aria-pressed',String(!play));status(play?'Ready to play. Start in neutral, shift into first and squeeze.':'Sound-design bench. Set RPM and load, or shape a patch for the toy.');}
+  finally {busy=false;stateUI();}
+}
+$('play-mode').addEventListener('click',()=>setView(true));$('tune-mode').addEventListener('click',()=>setView(false));
 function holdRev() {if(!running)return;held=true;revStart=null;$('rev').setAttribute('aria-pressed','true');sendLive();}
 function releaseRev() {held=false;revStart=null;$('rev').setAttribute('aria-pressed','false');sendLive();}
 $('rev').addEventListener('pointerdown',event=>{event.preventDefault();$('rev').focus();$('rev').setPointerCapture(event.pointerId);holdRev();});
@@ -415,6 +555,7 @@ function draw() {
 }
 function animate(now) {
   if(!running)return;
+  if(playMode){drive.step(Math.max(0,(now-lastDriveFrame)/1000),{throttle,brake:braking,boost:$('boost').checked});lastDriveFrame=now;updateDriveUI();if(now-lastSent>20){sendLive();lastSent=now;}}
   if(revStart!==null&&context) {if(context.currentTime-revStart>=4)releaseRev();else if(now-lastSent>40){sendLive();lastSent=now;}}
   draw();frame=requestAnimationFrame(animate);
 }
@@ -429,8 +570,8 @@ $('patch-file').addEventListener('change',async()=>{
   try {
     if(file.size>32768)throw new Error('Patch files must be smaller than 32 KB.');
     const loaded=parsePatch(await file.text());
-    patch=loaded;presetId=null;patchName='Loaded patch';releaseRev();$('engine-name').textContent='Custom engine';$('engine-family').textContent='Your patch';$('preset-note').textContent='A saved engine, ready for another experiment.';
-    syncUI();sendLive();persist();status('Patch loaded.');
+    patch=loaded;presetId=null;patchName='Loaded patch';$('engine-name').textContent='Custom engine';$('engine-family').textContent='Your patch';$('preset-note').textContent='A saved engine, ready for another experiment.';
+    syncUI();releaseRev();persist();status('Patch loaded.');
   } catch(error) {status(`Patch not loaded: ${error.message}`,true);}
   finally {$('patch-file').value='';}
 });
@@ -484,7 +625,7 @@ try {
 } catch {
   selectPreset(PRESETS[0]);status('The saved patch could not be restored. Loaded the V8 starting point.',true);
 }
-draw();
+stateUI();draw();
 </script>
 </body>
 </html>

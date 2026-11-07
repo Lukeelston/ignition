@@ -1,6 +1,6 @@
 # Ignition by Elston Works
 
-An engine-sound workbench alongside Syrinx Studio. Build a combustion engine, a turbine, or something that has never passed an emissions inspection.
+A handheld engine toy and sound-design bench alongside Syrinx Studio. Squeeze a trigger, shift gears and flick boost, using combustion engines, turbines or something that has never passed an emissions inspection.
 
 ## Open it
 
@@ -18,7 +18,15 @@ python serve.py
 
 If port 8767 is in use, use `python serve.py --port 0` and open the printed address. Browser storage is tied to the port, so save your patch as a file before changing ports.
 
-## Use the bench
+## Play
+
+Ignition opens in **Play**, the browser prototype of a handheld toy. **Start engine**, wait for it to catch, tap **gear +** for first, then hold **Squeeze trigger**. The throttle slider gives partial throttle and springs back on release. Six gears plus neutral; an automatic clutch handles launching. Shifting up drops RPM, braking slows virtual road speed, and the boost switch increases acceleration. Downshifts that would over-rev are refused.
+
+**Space** operates the focused trigger; **↑ / ↓** shift and **B** brakes while focus is outside a form input. Mouse and touch controls work too. Releasing, cancelling a pointer, or losing window focus releases momentary controls. Hiding the tab turns toy audio off. **Tune** opens the existing sound-design tools; switching views stops the engine and preserves the patch. Play controls RPM and load dynamically, without overwriting the saved bench settings.
+
+[Handheld layout and ESP implementation map](docs/handheld.md) records the physical controls and port plan. Board identification is awaiting Luke's photo. This release contains the browser toy, **not ESP firmware**.
+
+## Use the bench (Tune)
 
 - Pick **Big-block V8, Straight six, Track four, V-twin, Heavy diesel, Jet turbine, Ion drive**, or **Deep-space hauler**.
 - **Start engine** enables live audio. Target RPM and engine load are independent. **Hold to rev** raises both until released; **Rev once** performs a four-second rev. Space or Enter also works while the rev button is focused.
@@ -27,11 +35,13 @@ If port 8767 is in use, use `python serve.py --port 0` and open the printed addr
 - **Save patch** downloads a versioned JSON file; **Load patch** restores it. Your last settings also persist in this browser at the same local address. The seed reproduces offline renders.
 - Choose **Steady RPM**, **Rev up & release**, **Idle to redline**, or **Through the gears**, and a duration of **2–30 seconds**. **Render WAV** downloads **48 kHz, 24-bit, mono PCM** and creates an audition player. Playing the rendered result stops the live engine.
 
-These are synthesized sound-design starting points, not recordings of specific vehicles or a thermodynamic simulation. Cross-bank and uneven firing are expressive approximations. Clips have short edge fades; steady clips are not guaranteed seamless loops. The gear trajectory suggests acceleration, not a gearbox/vehicle physics model.
+These are synthesized sound-design starting points, not recordings of specific vehicles or a thermodynamic simulation. Cross-bank and uneven firing are expressive approximations. Clips have short edge fades; steady clips are not guaranteed seamless loops. The WAV export's gear trajectory is a scripted sweep, separate from Play's interactive simplified driving model.
 
 ## Files and verification
 
 - `web/engine.js`: deterministic DSP, presets, patch format, motion curves and WAV encoder.
+- `web/drive.js`: browser-independent ignition, throttle, gearing, virtual speed, boost and brake controller.
+- `tools/check_toy.py`: real Chrome interaction checks and live audio capture, including callback fallback.
 - `web/worklet.js`: low-latency live synthesis using [AudioWorklet](https://developer.mozilla.org/en-US/docs/Web/API/AudioWorklet).
 - Direct-file contexts and failed worklet loads use the same DSP through a native audio callback. Audio is resumed immediately on the click; startup failures time out and appear beside the ignition button.
 - `web/render-worker.js`: offline render using the same DSP, away from UI interaction.

@@ -6,13 +6,14 @@
   <script data-local-entry>if(location.protocol==='file:')location.replace('../Ignition.html');</script>
   <link rel="stylesheet" href="style.css"><script type="module" src="app.js"></script>
 </head>
-<body data-running="false">
+<body data-running="false" data-view="play">
 <header class="masthead">
   <div class="identity"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M9 6h22v12H9zM14 10h12M20 18v10m-8 5a8 8 0 1 1 16 0"/></svg><div><h1>Ignition</h1><span>by Elston Works</span></div></div>
-  <div class="masthead-note">Engine sound workbench<span>From a cold idle to another world.</span></div>
+  <div class="masthead-note">An engine in your hand.<span>Squeeze. Shift. Make unreasonable noises.</span></div>
   <span class="local-badge"><i></i> Local synthesis</span>
 </header>
 <main>
+  <nav class="view-switch" aria-label="Ignition mode"><button id="play-mode" aria-pressed="true">Play</button><button id="tune-mode" aria-pressed="false">Tune</button><span>Handheld prototype <b>01</b></span></nav>
   <section class="preset-section" aria-label="Engine starting points"><div class="section-line"><h2>Choose a starting point</h2><span>Then make it yours.</span></div><div id="presets" class="presets"></div></section>
   <div class="workbench">
     <section class="dyno" aria-label="Live engine bench">
@@ -20,6 +21,11 @@
       <p id="preset-note" class="preset-note"></p>
       <div class="dial-wrap">
         <svg class="tachometer" viewBox="0 0 440 345" role="img" aria-label="Engine tachometer"><g id="dial-ticks"></g><g id="needle" transform="rotate(-130 220 170)"><path d="M217 182 220 42 223 182Z" fill="#f5cc4e"/></g><circle cx="220" cy="170" r="14" fill="#172d3b" stroke="#94a7b2" stroke-width="2"/><circle cx="220" cy="170" r="4" fill="#f5cc4e"/><text x="220" y="256" id="rpm-readout" class="rpm-readout" text-anchor="middle">0</text><text x="220" y="281" text-anchor="middle" class="dial-unit">RPM</text><text x="220" y="323" text-anchor="middle" class="dial-caption" id="dial-caption">8 cylinders · 4-stroke</text></svg>
+      </div>
+      <div class="toy-controls">
+        <div class="drive-display"><div><span>GEAR</span><strong id="gear-readout">N</strong></div><div><span>VIRTUAL SPEED</span><strong><span id="speed-readout">0</span><small>km/h</small></strong></div><div class="drive-indicator" id="drive-indicator">IGNITION OFF</div></div>
+        <div class="thumb-controls"><button id="gear-down" aria-label="Gear down">− <span>GEAR</span></button><button id="gear-up" aria-label="Gear up">+ <span>GEAR</span></button><label class="boost-switch"><input id="boost" type="checkbox"><span>BOOST</span><i aria-hidden="true"></i></label></div>
+        <div class="trigger-panel"><label class="slider-label" for="throttle"><span>Throttle trigger</span><output id="throttle-value">0%</output></label><input id="throttle" type="range" min="0" max="1" step=".01" value="0" aria-describedby="trigger-help"><div class="pedals"><button id="trigger" aria-pressed="false">Squeeze trigger <kbd>SPACE</kbd></button><button id="brake" aria-pressed="false">Brake <kbd>B</kbd></button></div><p id="trigger-help">Drag for partial throttle. Release to idle. ↑ / ↓ shift gears.</p></div>
       </div>
       <div class="live-controls">
         <label class="slider-label" for="rpm"><span>Target RPM</span><output id="rpm-value">950</output></label><input type="range" id="rpm" min="350" max="7000" step="10" value="950">
@@ -29,7 +35,8 @@
       <p id="status" role="status" aria-live="polite">Ready. Start an engine or render a sound.</p>
       <div class="monitor"><label for="volume">Monitor</label><input id="volume" aria-label="Monitor volume" type="range" min="0" max=".8" step=".01" value=".25"><output id="volume-value">25%</output><button id="mute" aria-pressed="false" title="Mute live monitoring">Mute</button></div>
       <div class="scope-box"><div><span>Output waveform</span><span id="output-level">— dBFS</span></div><canvas id="scope" width="700" height="130" aria-label="Live output waveform"></canvas></div>
-      <p class="bench-help">Hold the rev button with your mouse, touch, Space or Enter. Release to return to your target RPM.</p>
+      <p class="bench-help tune-help">Hold the rev button with your mouse, touch, Space or Enter. Release to return to your target RPM.</p>
+      <p class="bench-help play-help">Start in neutral. Tap + for first, then squeeze. Auto clutch; no footwork required. Tune opens the sound-design bench.</p>
     </section>
     <section class="designer" aria-labelledby="designer-title">
       <div class="designer-heading"><h2 id="designer-title">Build the character</h2><button id="reset" class="text-button">Reset preset</button></div>

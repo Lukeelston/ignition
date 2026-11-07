@@ -49,7 +49,15 @@ def main():
                 page.get_by_role('button', name='Start engine', exact=True).click()
                 page.wait_for_function("document.body.dataset.running === 'true'", timeout=5000)
                 page.wait_for_function("parseFloat(document.querySelector('#output-level').textContent) > -80", timeout=5000)
+                page.wait_for_function("document.querySelector('#state-label').textContent === 'Running'", timeout=5000)
+                page.get_by_role('button', name='Gear up', exact=True).click()
+                page.locator('#trigger').focus()
+                page.keyboard.down('Space')
+                page.wait_for_function("Number(document.querySelector('#speed-readout').textContent) > 10", timeout=5000)
+                page.keyboard.up('Space')
+                assert page.locator('#throttle-value').inner_text() == '0%'
                 result['live_output'] = page.locator('#output-level').inner_text()
+                page.get_by_role('button', name='Tune', exact=True).click()
                 page.locator('#duration').fill('2')
                 with page.expect_download(timeout=10000) as download:
                     page.get_by_role('button', name='Render WAV', exact=True).click()

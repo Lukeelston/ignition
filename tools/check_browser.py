@@ -35,6 +35,7 @@ def main():
                 };
             ''')
             page.goto(address)
+            page.get_by_role('button', name='Tune', exact=True).click()
             page.get_by_role('heading', name='Ignition', exact=True).wait_for(timeout=5000)
             assert page.locator('#presets button').count() == 8
             page.screenshot(path=str(OUT / 'ignition-desktop.png'), full_page=True)
@@ -107,6 +108,12 @@ def main():
                 report['export'] = {'channels': 1, 'bit_depth': 24, 'sample_rate': 48000, 'frames': 96000}
             page.locator('#preview').evaluate('(audio) => audio.play()')
             page.wait_for_function("document.body.dataset.running === 'false'")
+            page.get_by_role('button', name='Play', exact=True).click()
+            page.wait_for_function("document.body.dataset.view === 'play'")
+            assert page.locator('#preview').evaluate('(audio) => audio.paused'), 'Switching to Play must stop the hidden preview'
+            page.get_by_role('button', name='Tune', exact=True).click()
+            page.wait_for_function("document.body.dataset.view === 'tune'")
+            page.locator('#preview').evaluate('(audio) => audio.play()')
             page.get_by_role('button', name='Start engine', exact=True).click()
             page.wait_for_function("document.body.dataset.running === 'true'")
             assert page.locator('#preview').evaluate('(audio) => audio.paused'), 'Starting the engine must stop preview playback'
