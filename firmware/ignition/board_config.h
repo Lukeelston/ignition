@@ -11,6 +11,6 @@ constexpr int bclk=15,wordSelect=16,dataOut=17,rgb=48;
 // Provisional raw ADC calibration. Record rest and desired full-forward readings.
 // A full reading below rest reverses direction without changing centre = idle.
 constexpr int throttleRest=2048,throttleFull=3900,throttleDeadZone=300;
-constexpr float volume=.08f; // reduced-level bench setting while investigating crackle
+constexpr float volume=.22f; // restore the original engine level with PCM16 output
 constexpr int blockFrames=128;
 }
