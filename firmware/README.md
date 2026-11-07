@@ -126,6 +126,8 @@ For an output-path comparison, add `--tone --seconds 15`. This **writes** a `t` 
 
 **Current bench state:** sample rate is temporarily **16 kHz**, compared with the original 32 kHz. Luke reports distorted beeps at both rates. This is an unresolved diagnostic state, not a sound-quality fix. The fixed sample-count engine delay and gain smoothing also take twice as long at 16 kHz; judge this comparison using the independent beeps. Return to the intended engine rate after resolving the output fault.
 
+The standalone Iris driver subsequently produced user-confirmed quiet, clean notes. Ignition now matches its signed 16-bit sample conversion, placed in the high 16 bits of each 32-bit stereo slot; the clock/slot format and volume remain unchanged. This isolates one difference from the clean reference. Listening confirmation for the updated engine is pending.
+
 The browser's Tune controls remain the patch editor. Save a patch, then append it as the ninth firmware character:
 
 ```powershell

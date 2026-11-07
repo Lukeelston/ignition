@@ -183,5 +183,7 @@ public:
     }
   }
 };
-inline int32_t pcm32(float sample){return int32_t(std::llround(double(bounded(sample,-.99f,.99f))*2147483647.0));}
+// Iris's proven output representation: signed PCM16, MSB-aligned in a 32-bit
+// slot. Multiplication also avoids undefined left-shifting of negative values.
+inline int32_t pcm32(float sample){return int32_t(std::lround(bounded(sample,-.99f,.99f)*32768.f))*65536;}
 }

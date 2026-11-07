@@ -144,6 +144,17 @@ int main(int argc,char** argv) {
   }
   assert(pcm32(0)==0&&pcm32(-.5f)<0&&pcm32(.5f)>0);
   assert(pcm32(-.5f)==-pcm32(.5f));
+  // Match the reference driver: signed 16-bit PCM in the high half of each
+  // 32-bit slot. Quantization must preserve level/sign within half a PCM16 step.
+  for(int i=-40000;i<=40000;i++){
+    const float input=float(i)/40000;
+    const int32_t packed=pcm32(input);
+    assert((uint32_t(packed)&0xffffu)==0);
+    const double decoded=double(packed)/2147483648.0;
+    assert(std::fabs(decoded-bounded(input,-.99f,.99f))<=1.0/65536+1e-7);
+  }
+  assert(pcm32(768.f/32768)==768*65536);
+  assert(pcm32(-768.f/32768)==-768*65536);
   Patch firing=kPatches[0];firing.rpm=3000;firing.roughness=0;firing.firing=Firing::Even;
   Synth pulse(firing);for(uint32_t i=0;i<sampleRate;i+=128)pulse.process(buffer,std::min(128u,sampleRate-i),3000,.5f,1);
   assert(pulse.firings>=199&&pulse.firings<=201);
