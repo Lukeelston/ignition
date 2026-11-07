@@ -96,6 +96,8 @@ python tools/read_board.py --serial 58:e6:c5:68:65:c8 --seconds 8
 
 This helper opens only the matching USB identity, does not deliberately reset or write to the board, saves parsed telemetry in `evidence/board-*.json`, and closes the port afterward. It exits unsuccessfully if fewer than two valid samples arrive. Parsing is separate from audio verification: advancing blocks do not prove sound at the speaker.
 
+Add `--live` to print each arriving sample during a guided bench test. Telemetry is 1 Hz; hold an input for at least two seconds when checking its raw level. Brief button clicks can fall between samples even though the firmware polls and debounces at 100 Hz.
+
 The browser's Tune controls remain the patch editor. Save a patch, then append it as the ninth firmware character:
 
 ```powershell

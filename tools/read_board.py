@@ -29,6 +29,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--serial', required=True, help='Exact USB serial/MAC of the toy board')
     parser.add_argument('--seconds', type=float, default=8)
+    parser.add_argument('--live', action='store_true', help='Print controls as each sample arrives')
     args = parser.parse_args()
     if not 1 <= args.seconds <= 180:
         parser.error('--seconds must be 1 through 180')
@@ -46,7 +47,10 @@ def main():
     pending = b''
     try:
         reader.open()
-        deadline = time.monotonic() + args.seconds
+        started = time.monotonic()
+        deadline = started + args.seconds
+        if args.live:
+            print(f'Monitor open: {port.device}, serial {port.serial_number}', flush=True)
         while time.monotonic() < deadline:
             pending += reader.read(min(max(reader.in_waiting, 1), 4096))
             while b'\n' in pending:
@@ -54,6 +58,10 @@ def main():
                 sample = parse_telemetry(line.decode('utf-8', errors='replace').strip())
                 if sample is not None:
                     records.append(sample)
+                    if args.live:
+                        controls = ' '.join(f'{key}={sample.get(key, "?")}'
+                                            for key in ['key', 'state', 'button_mode', 'adc', 'throttle', 'rpm', 'write_errors'])
+                        print(f't={time.monotonic()-started:.1f}s {controls}', flush=True)
             if len(pending) > 4096:
                 pending = b''
     finally:
