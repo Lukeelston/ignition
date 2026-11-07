@@ -8,6 +8,17 @@ namespace ignition {
 constexpr float tau=6.28318530718f;
 constexpr uint32_t sampleRate=16000; // bench comparison with Iris's audio clock
 inline float bounded(float x,float lo,float hi){return std::max(lo,std::min(hi,x));}
+inline float benchGain(char command,float current){return command>='0'&&command<='8'?float(command-'0')/10.f:current;}
+struct PCMLevels {float peak=0,rms=0;};
+inline PCMLevels measurePCM(const int32_t* samples,size_t count){
+  PCMLevels result;float energy=0;
+  for(size_t i=0;i<count;i++){
+    const float value=float(samples[i])*(1.f/2147483648.f);
+    result.peak=std::max(result.peak,std::fabs(value));energy+=value*value;
+  }
+  if(count)result.rms=std::sqrt(energy/count);
+  return result;
+}
 enum class Mode {Combustion,Turbine,Ion};
 enum class Firing {Even,Cross,Uneven};
 struct Patch {

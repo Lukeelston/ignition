@@ -122,11 +122,15 @@ This helper opens only the matching USB identity, does not deliberately reset or
 
 Add `--live` to print each arriving sample during a guided bench test. Telemetry is 1 Hz; hold an input for at least two seconds when checking its raw level. Brief button clicks can fall between samples even though the firmware polls and debounces at 100 Hz.
 
+For a live engine-level comparison, add `--gain 0.8 --live`. This **writes** an engine gain command without restarting the board or starting the engine. Accepted values are 0.0 through 0.8 in steps of 0.1; native USB digits `0` through `8` do the same. Existing smoothing ramps the change. Gain is RAM-only and resets to the configured 0.22 at reboot. Keep the speaker away from your ear when raising it. Diagnostic beep level is independent of this setting.
+
+`pcm_peak` and `pcm_rms` measure the actual packed samples sent to I²S, normalized to full scale. Each report samples one 128-frame (8 ms at 16 kHz) block; it is **not** a peak/RMS measurement over the entire second and can miss intervening peaks. These fields establish digital signal level, not speaker volume or amplifier headroom.
+
 For an output-path comparison, add `--tone --seconds 15`. This **writes** a `t` command to the identified toy: the engine stops and eight quiet 660 Hz beeps play for about 12 seconds, with soft edges and silence between them. The test uses the configured sample rate and 32-bit stereo I²S path but bypasses the engine sound source. It finishes with the engine off; release and click the stick to start normally again. No diagnostic sound plays automatically at boot. Telemetry includes numeric `tone` (active) and `tone_request` fields. Clean beeps would narrow the investigation toward the engine sound or frequency-dependent speaker response; distorted beeps would point toward the output path. Neither result alone identifies a particular faulty component.
 
 **Current bench state:** sample rate is temporarily **16 kHz**, compared with the original 32 kHz. Luke reports distorted beeps at both rates. This is an unresolved diagnostic state, not a sound-quality fix. The fixed sample-count engine delay and gain smoothing also take twice as long at 16 kHz; judge this comparison using the independent beeps. Return to the intended engine rate after resolving the output fault.
 
-The standalone Iris driver subsequently produced user-confirmed quiet, clean notes. Ignition now matches its signed 16-bit sample conversion, placed in the high 16 bits of each 32-bit stereo slot. Luke reported roughly 90% improvement, but insufficient volume. The subsequent gain-only adjustment restores 0.22; all other audio settings are retained for this comparison.
+The standalone Iris driver subsequently produced user-confirmed quiet, clean notes. Ignition now matches its signed 16-bit sample conversion, placed in the high 16 bits of each 32-bit stereo slot. Luke reported roughly 90% improvement, but insufficient volume. Restoring gain to 0.22 still sounded only 5–10% as loud as required. The latest comparison uses live gain 0.8, confirmed in packed-sample telemetry; its listening result remains pending. Boot gain remains 0.22 and other audio settings are retained.
 
 The browser's Tune controls remain the patch editor. Save a patch, then append it as the ninth firmware character:
 

@@ -1,4 +1,4 @@
-"""Bounded telemetry capture from an exact native-USB S3; optional quiet tone test."""
+"""Bounded telemetry from an exact native-USB S3; optional tone or live engine gain."""
 import argparse
 from datetime import datetime, timezone
 import json
@@ -31,6 +31,7 @@ def main():
     parser.add_argument('--seconds', type=float, default=8)
     parser.add_argument('--live', action='store_true', help='Print controls as each sample arrives')
     parser.add_argument('--tone', action='store_true', help='Stop engine and request eight quiet diagnostic beeps')
+    parser.add_argument('--gain', type=float, choices=[i/10 for i in range(9)], help='Set live engine gain (0 through 0.8); does not start engine')
     args = parser.parse_args()
     if not 1 <= args.seconds <= 180:
         parser.error('--seconds must be 1 through 180')
@@ -48,8 +49,9 @@ def main():
     pending = b''
     try:
         reader.open()
-        if args.tone:
-            if reader.write(b't') != 1:
+        command = (str(round(args.gain*10)).encode('ascii') if args.gain is not None else b'') + (b't' if args.tone else b'')
+        if command:
+            if reader.write(command) != len(command):
                 raise RuntimeError('Diagnostic command was not written completely')
         started = time.monotonic()
         deadline = started + args.seconds
@@ -64,7 +66,7 @@ def main():
                     records.append(sample)
                     if args.live:
                         controls = ' '.join(f'{key}={sample.get(key, "?")}'
-                                            for key in ['key', 'state', 'button_mode', 'adc', 'throttle', 'rpm', 'tone', 'write_errors'])
+                                            for key in ['state', 'adc', 'throttle', 'rpm', 'volume', 'pcm_peak', 'pcm_rms', 'tone', 'write_errors'])
                         print(f't={time.monotonic()-started:.1f}s {controls}', flush=True)
             if len(pending) > 4096:
                 pending = b''
@@ -75,7 +77,7 @@ def main():
     timestamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     destination = evidence / f'board-{timestamp}.json'
     result = {'port': port.device, 'serial': port.serial_number,
-              'seconds': args.seconds, 'tone_requested': args.tone, 'records': records, 'serial_closed': True}
+              'seconds': args.seconds, 'tone_requested': args.tone, 'gain_requested': args.gain, 'records': records, 'serial_closed': True}
     destination.write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
     summary = {key: value for key, value in result.items() if key != 'records'}
     summary.update(samples=len(records), evidence=str(destination))

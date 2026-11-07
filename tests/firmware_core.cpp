@@ -12,6 +12,16 @@ static void advance(Drive& d,int ticks,float throttle=0,bool brake=false,bool bo
 }
 int main(int argc,char** argv) {
   assert(argc==2);
+  // Bench gain commands must stay bounded; unrelated USB input leaves the gain
+  // alone. Meter the actual packed stereo words, including silence and signs.
+  assert(benchGain('0',.22f)==0&&benchGain('8',.22f)==.8f);
+  for(char command:{'9','t','\n','-','x'})assert(benchGain(command,.22f)==.22f);
+  for(char command='0';command<='8';command++)assert(benchGain(command,.22f)>=0&&benchGain(command,.22f)<=.8f);
+  const int32_t meterSamples[]={0,0,1073741824,1073741824,-1073741824,-1073741824,0,0};
+  const auto metered=measurePCM(meterSamples,8);
+  assert(metered.peak==.5f&&std::fabs(metered.rms-std::sqrt(.125f))<1e-6f);
+  const int32_t zeros[]={0,0};assert(measurePCM(zeros,2).rms==0);
+  assert(measurePCM(nullptr,0).peak==0&&measurePCM(nullptr,0).rms==0);
   // Diagnostic signal: eight finite, low-level 660 Hz beeps, soft edges and
   // exact silence between notes and after the bounded test completes.
   TestTone tone;assert(!tone.active()&&tone.next()==0);tone.start();
