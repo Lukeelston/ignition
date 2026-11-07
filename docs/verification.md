@@ -17,3 +17,11 @@ These checks establish generated audio, a functioning browser signal path, and u
 This is procedural sound design with simplified firing and resonance models. No seamless-loop guarantee, real vehicle simulation, multichannel spatialization, or external MIDI/game-engine control is claimed.
 
 Browser QA uses a separate headless Chrome profile. Its browser and local server are closed in a finally block; no background service is installed. The user launcher intentionally leaves its visible server console running until Quit app or Ctrl+C.
+
+## Direct-opening fix
+
+User reported that Start engine did nothing. Chrome tab inventory showed `file:///C:/Users/Luke/Projects/engine-generator/web/index.html`, and no local server was running. The original HTML loaded external ES modules, which Chrome blocks from file origins. The earlier integration test exercised only the HTTP launcher path and missed this delivery failure.
+
+Added a self-contained `Ignition.html` with inline UI/DSP and Blob-backed worklet/render-worker code. The original index redirects direct-file opens to it. Standalone Quit stops audio without requesting a nonexistent server. No browser security settings are changed.
+
+`python tools/check_standalone.py` passed using the generated HTML served alone over loopback: eight presets, real live output, a valid two-second 24-bit WAV download, and clean Quit. No adjacent scripts, stylesheets, or other runtime assets were requested. Direct `file:` inspection is unavailable through the browser tool; direct-open behavior is awaiting the user's confirmation rather than being reported as automated proof.

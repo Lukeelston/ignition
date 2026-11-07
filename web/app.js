@@ -3,10 +3,15 @@ const $=id=>document.getElementById(id);
 const STORAGE='elston-ignition-patch-v1';
 let patch={...PRESETS[0].patch}, presetId=PRESETS[0].id, patchName=PRESETS[0].name;
 let context=null, node=null, gain=null, analyser=null, busy=false, running=false, muted=false;
-let held=false, revStart=null, lastSent=0, currentRPM=0, frame=0, worker=null, renderTimer=null, previewUrl=null;
+let held=false, revStart=null, lastSent=0, currentRPM=0, frame=0, worker=null, workerUrl=null, renderTimer=null, previewUrl=null;
 let scopeData=new Float32Array(1024);
 const status=(message,error=false)=>{ $('status').textContent=message; $('status').dataset.error=String(error); };
 const format=(value,control)=>control.unit ? `${value.toFixed(control.step<1 ? 1:0)} ${control.unit}` : `${Math.round(value*100)}%`;
+function moduleUrl(name) {
+  const embedded=window.IGNITION_BUNDLE?.[name];
+  return embedded ? URL.createObjectURL(new Blob([embedded],{type:'text/javascript'})) : name;
+}
+function releaseModule(url) {if(url?.startsWith('blob:'))URL.revokeObjectURL(url);}
 
 for(const preset of PRESETS) {
   const button=document.createElement('button');button.className='preset';button.setAttribute('aria-label',preset.name);button.dataset.id=preset.id;
@@ -100,7 +105,9 @@ async function toggleEngine() {
       $('preview').pause();
       context=new AudioContext({sampleRate:48000,latencyHint:'interactive'});
       if(!context.audioWorklet)throw new Error('Open Ignition through its launcher in Chrome.');
-      await context.audioWorklet.addModule('worklet.js');
+      const workletUrl=moduleUrl('worklet.js');
+      try {await context.audioWorklet.addModule(workletUrl);}
+      finally {releaseModule(workletUrl);}
       node=new AudioWorkletNode(context,'ignition-engine',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1],processorOptions:{patch}});
       gain=context.createGain();gain.gain.value=0;analyser=context.createAnalyser();analyser.fftSize=2048;
       scopeData=new Float32Array(analyser.fftSize);node.connect(gain);gain.connect(analyser);analyser.connect(context.destination);
@@ -155,7 +162,7 @@ $('patch-file').addEventListener('change',async()=>{
   } catch(error) {status(`Patch not loaded: ${error.message}`,true);}
   finally {$('patch-file').value='';}
 });
-function finishRender() {clearTimeout(renderTimer);worker?.terminate();worker=null;$('render').disabled=false;$('render').textContent='Render WAV';}
+function finishRender() {clearTimeout(renderTimer);worker?.terminate();worker=null;releaseModule(workerUrl);workerUrl=null;$('render').disabled=false;$('render').textContent='Render WAV';}
 $('render').addEventListener('click',()=>{
   if(worker)return;
   const duration=Number($('duration').value),motion=$('motion').value;
@@ -163,7 +170,8 @@ $('render').addEventListener('click',()=>{
   const snapshot={...patch},name=`ignition-${presetId||'custom'}-${motion}-${snapshot.seed}.wav`;
   $('render').disabled=true;$('render').textContent='Rendering…';status('Rendering your engine locally…');
   try {
-    worker=new Worker('render-worker.js',{type:'module'});
+    workerUrl=moduleUrl('render-worker.js');
+    worker=new Worker(workerUrl,{type:'module'});
     worker.onmessage=({data})=>{
       finishRender();if(data.error){status(data.error,true);return;}
       const blob=new Blob([data.wav],{type:'audio/wav'});
@@ -182,10 +190,16 @@ $('preview').addEventListener('play',()=>{if(running)toggleEngine();});
 $('quit').addEventListener('click',async()=>{
   if(busy)return;
   await stop();finishRender();$('preview').pause();
-  try {const response=await fetch('/__quit',{method:'POST',headers:{'X-Ignition-Control':'quit'}});if(!response.ok)throw new Error('Server refused the quit request.');status('Ignition is closed. You can close this window.');$('ignition').disabled=true;$('render').disabled=true;$('quit').disabled=true;}
+  try {
+    if(!window.IGNITION_BUNDLE) {
+      const response=await fetch('/__quit',{method:'POST',headers:{'X-Ignition-Control':'quit'}});
+      if(!response.ok)throw new Error('Server refused the quit request.');
+    }
+    status('Ignition is closed. You can close this window.');$('ignition').disabled=true;$('render').disabled=true;$('quit').disabled=true;
+  }
   catch(error){status(`Could not close the server: ${error.message} Close its console window instead.`,true);}
 });
-window.addEventListener('pagehide',()=>{worker?.terminate();if(context)context.close().catch(()=>{});if(previewUrl)URL.revokeObjectURL(previewUrl);});
+window.addEventListener('pagehide',()=>{worker?.terminate();releaseModule(workerUrl);if(context)context.close().catch(()=>{});if(previewUrl)URL.revokeObjectURL(previewUrl);});
 
 try {
   const saved=localStorage.getItem(STORAGE);

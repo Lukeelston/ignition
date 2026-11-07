@@ -6,11 +6,13 @@ import sys
 import tempfile
 import urllib.request
 import zipfile
+from build_standalone import build
 
 ROOT = Path(__file__).resolve().parents[1]
 DEST = ROOT / 'release' / 'Ignition-0.1.zip'
 DEST.parent.mkdir(exist_ok=True)
-files = [ROOT / name for name in ['README.md', 'serve.py', 'Launch Ignition.cmd', 'package.json']]
+build()
+files = [ROOT / name for name in ['README.md', 'serve.py', 'Launch Ignition.cmd', 'package.json', 'Ignition.html']]
 for directory in ['web', 'samples', 'tests', 'tools', 'docs']:
     files.extend(p for p in (ROOT / directory).rglob('*') if p.is_file() and '__pycache__' not in p.parts)
 with zipfile.ZipFile(DEST, 'w', zipfile.ZIP_DEFLATED) as archive:

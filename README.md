@@ -4,9 +4,11 @@ An engine-sound workbench alongside Syrinx Studio. Build a combustion engine, a 
 
 ## Open it
 
-Double-click **Launch Ignition.cmd**. It starts a local server and opens the bench in Chrome. Requires Python 3.11+ and Chrome; there are no packages to install. Both are already present on Luke's workstation.
+Double-click **Ignition.html** and open it in Chrome. This self-contained edition includes the UI, synthesizer, worklet and render worker. It needs no server, Python, packages, or adjacent files. Opening `web/index.html` directly forwards to this edition.
 
-The normal address is `http://127.0.0.1:8767`. The server only listens on this computer. Use **Quit app** in the footer or Ctrl+C in the launcher console when finished. Closing only the browser window leaves the local server running; the console makes that visible.
+**Launch Ignition.cmd** is the alternative server launcher. It starts a local server and opens the modular edition in Chrome. This alternative requires Python 3.11+; there are no packages to install. Python and Chrome are already present on Luke's workstation.
+
+The server edition's normal address is `http://127.0.0.1:8767`. It only listens on this computer. Use **Quit app** in the footer or Ctrl+C in the launcher console when finished. Closing only that edition's browser window leaves the local server running. The standalone HTML has no server to leave behind; Quit app stops its audio, and you can close the tab.
 
 From a terminal:
 
@@ -34,12 +36,16 @@ These are synthesized sound-design starting points, not recordings of specific v
 - `web/render-worker.js`: offline render using the same DSP, away from UI interaction.
 - `serve.py`: Python standard-library local server and Chrome launcher.
 - `tools/check_browser.py`: actual Chrome integration checks (requires Playwright for development only).
+- `tools/build_standalone.py`: rebuild `Ignition.html` after changing any web source.
+- `tools/check_standalone.py`: run the standalone bundle in Chrome with no adjacent assets served; checks live audio, WAV export and shutdown.
 - `tools/render_samples.mjs`: regenerate the V8 and ion-drive listening samples.
 - `docs/verification.md`: measured results and limitations.
 
 ```powershell
 node --test tests/engine.test.mjs
 python tools/check_browser.py
+python tools/build_standalone.py
+python tools/check_standalone.py
 node tools/render_samples.mjs
 ```
 

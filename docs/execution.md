@@ -15,3 +15,7 @@ Audio validation establishes a real browser signal and valid exports, not subjec
 - Final review found two important issues (live seed ignored, imported RPM over redline) and an audition-overlap defect. Added regression tests, observed all three failures, implemented fixes, then core suite 13/13 and full Chrome flow passed.
 - One-second real AudioWorklet capture retained alongside browser WAV and screenshots. Mute and pointer cancellation exercised as additional lifecycle checks.
 - No deferred findings. The audition overlap was treated as a functional issue because mixing two engines prevents useful comparison; it was fixed in the same verified pass.
+
+## Follow-up: Start engine did nothing
+
+User opened the raw web/index.html on disk; tab inventory confirmed a file URL and no server listener. External ES module loading from that context was the failure. Added a generated standalone HTML and a file-entry redirect; same source synthesizer, Blob modules, and no server required. New regression began with the missing-standalone assertion failing, then passed live-audio/render/shutdown checks with the artifact served alone and all asset requests unavailable. Existing DSP and full modular-browser regression suites rerun. Requested direct-file confirmation from Luke because the browser tool cannot inspect file URLs.
