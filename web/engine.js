@@ -64,7 +64,7 @@ export class EngineSynth {
     this.rng = this.p.seed || 0x6d2b79f5;
     this.phase = 0; this.shaft = 0; this.carrier = 0; this.field = 0; this.turboPhase = 0;
     this.pulse = 0; this.edge = 0; this.low = 0; this.air = 0; this.bodyLow = 0;
-    this.prev = 0; this.dc = 0; this.firings = 0;
+    this.prev = 0; this.dc = 0; this.firings = 0; this.textureEnvelope = 0;
     this.delay = new Float32Array(Math.round(sampleRate * .027)); this.delayIndex = 0;
   }
   set(patch) {
@@ -89,10 +89,15 @@ export class EngineSynth {
     const bodyA = 1 - Math.exp(-TAU*p.exhaust/sr);
     const airA = 1 - Math.exp(-TAU*1500/sr);
     const dcA = Math.exp(-TAU*18/sr);
+    const textureAttack=1-Math.exp(-1/(sr*.06)),textureRelease=1-Math.exp(-1/(sr*.35));
     const crossGains = [1,.52,.75,.52,.85,1,.52,.75];
     for (let i=0; i<output.length; i++) {
+      const previousRPM=this.rpm;
       this.rpm += (t.rpm-this.rpm)*rpmEase;
       this.load += (t.load-this.load)*loadEase;
+      const activity=clamp((this.rpm-previousRPM)*sr/(p.redline*.6)-.01,0,1);
+      this.textureEnvelope+=(activity-this.textureEnvelope)*(activity>this.textureEnvelope?textureAttack:textureRelease);
+      const texture=p.mode==='combustion'?this.textureEnvelope:1;
       const n = this.noise();
       this.shaft = (this.shaft + this.rpm/(60*sr)) % 1;
       this.field = (this.field + p.modulation/sr) % 1;
@@ -101,7 +106,7 @@ export class EngineSynth {
       const spacing = p.firing==='uneven' ? (this.firings%2 ? 1.38:.62) : 1;
       if (this.phase >= spacing) {
         this.phase -= spacing;
-        const weight = (p.firing==='cross' ? crossGains[this.firings%8] : 1) * (1+p.roughness*n*.32);
+        const weight = (p.firing==='cross' ? crossGains[this.firings%8] : 1) * (1+p.roughness*n*.32*texture);
         this.pulse += weight; this.edge += weight; this.firings++;
       }
       this.pulse *= pulseDecay; this.edge *= edgeDecay;
@@ -115,7 +120,7 @@ export class EngineSynth {
       this.carrier = (this.carrier + Math.min(sr*.18, 80+shaftHz*2.7)/sr)%1;
       const mech = Math.sin(TAU*this.shaft*6)*.65 + Math.sin(TAU*this.shaft*12)*.2;
       const field = Math.sin(TAU*this.carrier) * (.65+.35*Math.sin(TAU*this.field)) + .3*Math.sin(TAU*(this.carrier*2+this.field));
-      const roar = this.air * (.15+this.load*.65) * (p.mode==='turbine' ? 1.3 : .5);
+      const roar = this.air * (.15+this.load*.65) * (p.mode==='turbine' ? 1.3 : .5) * texture;
       const engine = (this.low*.6+this.bodyLow*p.body*.8+combustion*p.rasp*.2)*(p.mode==='combustion' ? 1 : p.mode==='ion' ? .14 : .07);
       let signal = engine*(.2+this.load*.8) + p.intake*roar + mech*p.whine*.12;
       signal += Math.sin(TAU*this.turboPhase)*p.turbo*this.spool*.14;

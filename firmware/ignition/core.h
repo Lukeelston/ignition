@@ -34,10 +34,10 @@ class Drive {
   float idle=750,redline=7000,response=.55f,crank=0,elapsed=0;
 public:
   enum State {Off,Cranking,Running};
-  State state=Off;int gear=0;float speed=0,rpm=0,load=0,shiftTime=0;
+  State state=Off;int gear=0;float speed=0,rpm=0,load=0,starter=0,shiftTime=0;
   bool limiter=false,overRev=false;
   void configure(const Patch& p){idle=p.idle;redline=p.redline;response=p.response;rpm=std::min(rpm,redline);}
-  void stop(){state=Off;gear=0;speed=rpm=load=crank=elapsed=shiftTime=0;limiter=overRev=false;}
+  void stop(){state=Off;gear=0;speed=rpm=load=starter=crank=elapsed=shiftTime=0;limiter=overRev=false;}
   void start(){stop();state=Cranking;rpm=350;}
   bool shift(int direction){
     if(state!=Running||shiftTime>0||(direction!=1&&direction!=-1))return false;
@@ -54,7 +54,12 @@ private:
   void tick(float dt,float throttle,bool brake,bool boost){
     if(state==Off)return;
     elapsed+=dt;
-    if(state==Cranking){crank+=dt;rpm=350+70*std::sin(crank*35);load=.12f;if(crank>=.65f){state=Running;rpm=idle;}return;}
+    if(state==Cranking){
+      crank+=dt;
+      if(crank<.75f){starter=bounded(crank/.1f,0,1);rpm=260+80*crank/.75f+45*std::sin(crank*32);load=.04f;}
+      else{starter=bounded(1-(crank-.75f)/.1f,0,1);rpm=idle*(1+.6f*std::exp(-(crank-.75f)/.16f));load=.2f;}
+      if(crank>=1.35f){state=Running;rpm=idle;starter=0;}return;
+    }
     shiftTime=std::max(0.f,shiftTime-dt);
     const float ratio=ratios[gear],driveThrottle=(shiftTime>0||brake)?0:throttle;
     if(ratio){
@@ -67,7 +72,8 @@ private:
     rpm+=(target-rpm)*(1-std::exp(-dt/(shiftTime>0?.07f:.10f+(1-response)*.20f)));
     rpm=bounded(rpm,idle,redline);limiter=rpm>redline*.975f&&throttle>.8f;
     const bool cut=limiter&&std::fmod(elapsed,.1f)<.035f;
-    load=(shiftTime>0||cut)?.05f:bounded(.12f+driveThrottle*(ratio?.88f:.65f),0,1);
+    const float effort=ratio?.55f+.075f*(gear-1)+.18f*(1-rpm/redline):.65f;
+    load=(shiftTime>0||cut)?.05f:bounded(.12f+driveThrottle*effort,0,1);
   }
 };
 
@@ -127,12 +133,12 @@ class Synth {
   float sineTable[tableSize+1],clipTable[tableSize+1],delay[delaySize]={};
   Patch p,target;uint32_t rng=7;int delayIndex=0;
   float rpm=950,load=.28f,spool=0,phase=0,shaft=0,carrier=0,fieldPhase=0,turboPhase=0;
-  float pulse=0,edge=0,low=0,air=0,bodyLow=0,prev=0,dc=0,gain=0;
+  float pulse=0,edge=0,low=0,air=0,bodyLow=0,prev=0,dc=0,gain=0,textureEnvelope=0;
   bool audible=false;
   void restart(float startRPM,float startLoad){
     p=target;rng=target.seed?target.seed:0x6d2b79f5;rpm=startRPM;load=startLoad;
     spool=phase=shaft=carrier=fieldPhase=turboPhase=0;
-    pulse=edge=low=air=bodyLow=prev=dc=gain=0;firings=0;delayIndex=0;
+    pulse=edge=low=air=bodyLow=prev=dc=gain=textureEnvelope=0;firings=0;delayIndex=0;
     std::fill(delay,delay+delaySize,0.f);
   }
   float noise(){uint32_t x=rng;x^=x<<13;x^=x>>17;x^=x<<5;rng=x;return float(double(rng)/2147483648.0-1);}
@@ -167,13 +173,18 @@ public:
     const float pulseDecay=std::exp(-1/(sampleRate*(.002f+p.body*.005f))),edgeDecay=std::exp(-1/(sampleRate*.00045f));
     const float lowA=1-std::exp(-tau*(p.exhaust*2.5f+p.rasp*2400)/sampleRate),bodyA=1-std::exp(-tau*p.exhaust/sampleRate);
     const float airA=1-std::exp(-tau*1500/sampleRate),dcA=std::exp(-tau*18/sampleRate);
+    const float textureAttack=1-std::exp(-1/(sampleRate*.06f)),textureRelease=1-std::exp(-1/(sampleRate*.35f));
     const float crossGains[8]={1,.52f,.75f,.52f,.85f,1,.52f,.75f};
     for(size_t i=0;i<count;i++){
+      const float previousRPM=rpm;
       rpm+=(wantedRPM-rpm)*rpmEase;load+=(wantedLoad-load)*loadEase;gain+=(wantedGain-gain)*.002f;
+      const float activity=bounded((rpm-previousRPM)*sampleRate/(p.redline*.6f)-.01f,0,1);
+      textureEnvelope+=(activity-textureEnvelope)*(activity>textureEnvelope?textureAttack:textureRelease);
+      const float texture=p.mode==Mode::Combustion?textureEnvelope:1;
       const float n=noise();shaft=wrap(shaft+rpm/(60*sampleRate));fieldPhase=wrap(fieldPhase+p.modulation/sampleRate);
       phase+=rpm*p.cylinders/((p.stroke==4?120:60)*sampleRate)*(1+p.roughness*.025f*sinCycle(fieldPhase));
       const float spacing=p.firing==Firing::Uneven?(firings%2?1.38f:.62f):1;
-      if(phase>=spacing){phase-=spacing;const float weight=(p.firing==Firing::Cross?crossGains[firings%8]:1)*(1+p.roughness*n*.32f);pulse+=weight;edge+=weight;firings++;}
+      if(phase>=spacing){phase-=spacing;const float weight=(p.firing==Firing::Cross?crossGains[firings%8]:1)*(1+p.roughness*n*.32f*texture);pulse+=weight;edge+=weight;firings++;}
       pulse*=pulseDecay;edge*=edgeDecay;const float combustion=pulse-edge;
       low+=lowA*(combustion-low);bodyLow+=bodyA*(low-bodyLow);air+=airA*(n-air);
       spool+=((rpm/p.redline)*(.25f+.75f*load)-spool)/(sampleRate*.38f);
@@ -181,7 +192,7 @@ public:
       carrier=wrap(carrier+std::min(sampleRate*.18f,80+rpm/60*2.7f)/sampleRate);
       const float mech=sinCycle(shaft*6)*.65f+sinCycle(shaft*12)*.2f;
       const float field=sinCycle(carrier)*(.65f+.35f*sinCycle(fieldPhase))+.3f*sinCycle(carrier*2+fieldPhase);
-      const float roar=air*(.15f+load*.65f)*(p.mode==Mode::Turbine?1.3f:.5f);
+      const float roar=air*(.15f+load*.65f)*(p.mode==Mode::Turbine?1.3f:.5f)*texture;
       const float engine=(low*.6f+bodyLow*p.body*.8f+combustion*p.rasp*.2f)*(p.mode==Mode::Combustion?1.f:p.mode==Mode::Ion?.14f:.07f);
       float signal=engine*(.2f+load*.8f)+p.intake*roar+mech*p.whine*.12f;
       signal+=sinCycle(turboPhase)*p.turbo*spool*.14f;

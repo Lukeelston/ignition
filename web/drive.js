@@ -10,7 +10,7 @@ export class ToyDrive {
     if(this.rpm>redline)this.rpm=redline;
   }
   stop() {
-    this.state='off';this.gear=0;this.speed=0;this.rpm=0;this.load=0;
+    this.state='off';this.gear=0;this.speed=0;this.rpm=0;this.load=0;this.starter=0;
     this.crank=0;this.shiftTime=0;this.elapsed=0;this.limiter=false;this.notice='';
   }
   start() {this.stop();this.state='cranking';this.rpm=350;}
@@ -34,8 +34,15 @@ export class ToyDrive {
     if(this.state==='off')return;
     this.elapsed+=dt;
     if(this.state==='cranking') {
-      this.crank+=dt;this.rpm=350+70*Math.sin(this.crank*35);this.load=.12;
-      if(this.crank>=.65){this.state='running';this.rpm=this.idle;}
+      this.crank+=dt;
+      if(this.crank<.75){
+        this.starter=driveClamp(this.crank/.1,0,1);
+        this.rpm=260+80*this.crank/.75+45*Math.sin(this.crank*32);this.load=.04;
+      }else{
+        this.starter=driveClamp(1-(this.crank-.75)/.1,0,1);
+        this.rpm=this.idle*(1+.6*Math.exp(-(this.crank-.75)/.16));this.load=.2;
+      }
+      if(this.crank>=1.35){this.state='running';this.rpm=this.idle;this.starter=0;}
       return;
     }
     this.shiftTime=Math.max(0,this.shiftTime-dt);
@@ -53,9 +60,10 @@ export class ToyDrive {
     this.rpm=driveClamp(this.rpm,this.idle,this.redline);
     this.limiter=this.rpm>this.redline*.975&&throttle>.8;
     const cut=this.limiter&&this.elapsed%.1<.035;
-    this.load=shifting||cut?.05:driveClamp(.12+driveThrottle*(ratio?.88:.65),0,1);
+    const effort=ratio?.55+.075*(this.gear-1)+.18*(1-this.rpm/this.redline):.65;
+    this.load=shifting||cut?.05:driveClamp(.12+driveThrottle*effort,0,1);
   }
   snapshot() {
-    return {state:this.state,gear:this.gear,speed:this.speed,rpm:this.rpm,load:this.load,shifting:this.shiftTime>0,limiter:this.limiter,notice:this.notice};
+    return {state:this.state,gear:this.gear,speed:this.speed,rpm:this.rpm,load:this.load,starter:this.starter,shifting:this.shiftTime>0,limiter:this.limiter,notice:this.notice};
   }
 }

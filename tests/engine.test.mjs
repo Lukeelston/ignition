@@ -20,9 +20,31 @@ if (api) {
     }
   });
   test('same patch and seed reproduce exactly; different seed changes texture', () => {
-    const a = renderClip(base, {duration: 2, motion: 'steady'});
-    assert.deepEqual(a, renderClip(base, {duration: 2, motion: 'steady'}));
-    assert.notDeepEqual(a, renderClip({...base, seed: 99}, {duration: 2, motion: 'steady'}));
+    const a = renderClip(base, {duration: 2, motion: 'rev'});
+    assert.deepEqual(a, renderClip(base, {duration: 2, motion: 'rev'}));
+    assert.notDeepEqual(a, renderClip({...base, seed: 99}, {duration: 2, motion: 'rev'}));
+  });
+  test('combustion noise swells on acceleration and fades at steady revs', () => {
+    for (const sampleRate of [16000,48000]) {
+      const patch={...base,rpm:750,load:.12,intake:.2,roughness:.3};
+      const a=new EngineSynth({...patch,seed:7},sampleRate),b=new EngineSynth({...patch,seed:99},sampleRate);
+      function difference(seconds,rpm,load) {
+        a.set({rpm,load});b.set({rpm,load});let energy=0,count=0;
+        for(let remaining=Math.round(seconds*sampleRate);remaining>0;) {
+          const n=Math.min(128,remaining),x=a.process(new Float32Array(n)),y=b.process(new Float32Array(n));
+          for(let i=0;i<n;i++){energy+=(x[i]-y[i])**2;count++;}
+          remaining-=n;
+        }
+        return Math.sqrt(energy/count);
+      }
+      assert.ok(difference(1,750,.12)<1e-6,'no continuous random hiss at idle');
+      const swell=difference(1,6000,.8);
+      assert.ok(swell>.0001,'acceleration must retain audible texture');
+      difference(4,6000,.8);
+      assert.ok(difference(1,6000,.8)<swell*.05,'steady throttle must let the texture fade');
+      difference(3,750,.12);
+      assert.ok(difference(1,750,.12)<swell*.05,'idle must become quiet again');
+    }
   });
   test('four-stroke V8 at 3000 RPM fires 200 times per second', () => {
     const synth = new EngineSynth({...base, rpm: 3000, cylinders: 8, stroke: 4, roughness: 0}, 48000);
@@ -59,7 +81,7 @@ if (api) {
     a.process(new Float32Array(4800));b.process(new Float32Array(4800));
     a.set({...base});
     assert.deepEqual(a.process(new Float32Array(4800)), b.process(new Float32Array(4800)));
-    a.set({seed:99});
+    a.set({seed:99,rpm:5000});b.set({rpm:5000});
     assert.notDeepEqual(a.process(new Float32Array(4800)), b.process(new Float32Array(4800)));
   });
   test('imported target RPM cannot exceed the engine redline', () => {

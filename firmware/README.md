@@ -14,7 +14,7 @@ Luke authorized borrowing the amp and speaker. Read the chat **Design Iris’s e
 
 These identify the purple **HW-792 / MAX98357A** amplifier and a **39 × 39 × 22 mm** donor speaker. Luke measured approximately 4 Ω; wattage is unknown. The recorded successful Iris setup uses GPIO15/16/17, 32-bit stereo I²S with mono in both slots, and GAIN/SD left open. This firmware keeps those connections and slot format; the current bench rate is 16 kHz, following comparison with its original 32 kHz output. Engine volume is separately adjustable in `board_config.h`; Iris's speech gain is not copied onto continuous engine noise.
 
-Latest bench update (2026-11-07): bypassing the mismatched terminal adapter enabled audible engine output, but Luke reported buzz/rattle. He tried an unmarked miniature speaker and found a TV speaker marked **5 W, 4 Ω**, a compatible load; 5 W specifies handling rather than required drive power. A standalone Iris-driver test produced user-confirmed quiet, clean notes. Matching its PCM16 sample conversion in Ignition improved the sound by about 90% in Luke's assessment, but the engine was too quiet at the reduced gain of 0.08. The current gain is restored to **0.22** (about 8.8 dB higher), with the PCM16 conversion retained. Useful volume and residual crackling at that level still need listening confirmation. Power down before speaker swaps, and keep the speaker across SPK+/SPK−.
+Latest bench update (2026-11-07): the standalone Iris driver produced user-confirmed clear, loud tones. Larger buffers increased perceived engine volume but left static. Luke heard the same static in a PC render, and confirmed that removing the synth's random intake/firing texture removed it. He chose an acceleration-driven envelope: combustion texture swells as RPM rises and fades at steady revs. The current profile also adds VRx flick gearing and a starter/catch/idle sequence, retaining the tested **0.8 gain across reboot**. Final on-board sound and new controls require the listening/physical test recorded in `docs/verification.md`. Power down before speaker swaps, and keep the speaker across SPK+/SPK−.
 
 Use a spare S3 as the toy controller. Unplug power before moving the amp's five input/power wires, label them, and disconnect the amp from Iris's ESP before connecting it to the toy. Keep the speaker attached to the amp. The amp must not be driven by both ESPs at once. Iris's screen, microphone, board firmware and software stay with Iris. This project has not changed any Iris files or devices.
 
@@ -28,21 +28,21 @@ Use a spare S3 as the toy controller. Unplug power before moving the amp's five 
 | GAIN, SD | Leave open, preserving Iris's breakout defaults |
 | Speaker + / − | Keep across the amp's two speaker terminals |
 
-Neither speaker terminal goes to GND; this is a bridge output. The amp accepts digital I²S, not an analog audio wire. These details are supported by the [MAX98357 amplifier pin guide](https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/pinouts) and the existing Iris wiring record. The speaker's unknown wattage means the first listening test should use the configured low level and a short run.
+Neither speaker terminal goes to GND; this is a bridge output. The amp accepts digital I²S, not an analog audio wire. These details are supported by the [MAX98357 amplifier pin guide](https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/pinouts) and the existing Iris wiring record. Luke subsequently fitted a TV speaker marked 5 W / 4 Ω; the current bench gain is 0.8, following the clear, loud reference-tone test.
 
 ## Handheld controls
 
 Numbers below are **GPIO labels**, not physical header positions. Each switch connects its GPIO to **GND** when active; firmware enables pull-ups and debounces for 20 ms. Open means inactive.
 
-**Current bench wiring:** Luke found that the terminal adapter is labelled for a different board. Use the S3's own pins and bypass that adapter. The current build uses only the thumbstick and its click for ignition; the separate button/switch has been removed from the wiring plan. The already-installed button-mode firmware supports this without a reflash.
+**Current bench wiring:** Luke found that the terminal adapter is labelled for a different board. Use the S3's own pins and bypass that adapter. The build uses only the thumbstick: VRy throttle, VRx flick gearing and click ignition. Luke confirmed adding VRx to GPIO1. GPIO1 is ADC1_CH0 on this S3 ([Espressif datasheet](https://documentation.espressif.com/esp32_s3_datasheet_en.pdf)); it does not replace the optional GPIO5/6 gear buttons.
 
 ```text
 ESP32-S3                    THUMBSTICK
 3V3 ----------------------- VCC / +5V
 GND ----------------------- GND
 GPIO4 --------------------- VRy
+GPIO1 --------------------- VRx (left/right = gear down/up)
 GPIO8 --------------------- SW (click = start/stop)
-                            VRx: not connected
 
 ESP32-S3                    MAX98357A AMP
 5V ------------------------ VIN
@@ -59,6 +59,7 @@ Wire with USB unplugged. Amp and thumbstick share the S3 ground. The thumbstick 
 | Control | S3 GPIO | Part / behavior |
 | --- | --- | --- |
 | Throttle | **4** | Thumbstick VRy; centre = idle, one direction = throttle |
+| Flick gears | **1** | Thumbstick VRx; right/high = up, left/low = down; re-centre between shifts |
 | Gear + | **5** | Normally-open momentary button; one upshift per press |
 | Gear − | **6** | Normally-open momentary button; one downshift per press |
 | Brake | **7** | Optional separate normally-open button; leave empty for this build |
@@ -80,13 +81,17 @@ Luke has a thumbstick, buttons, switches and rotary encoders. The thumbstick rep
 | VCC / +5V | **3V3**, even if the module label says +5V |
 | VRy | **GPIO4** |
 | SW | **GPIO8**, click once to start, again to stop |
-| VRx | Leave disconnected |
+| VRx | **GPIO1**, flick left/right for gear down/up |
 
 The conventional joystick is two potentiometers plus a switch. Supply it from 3.3 V so its analog outputs stay within the S3 supply rails. The [Joy-IT KY-023 specification](https://www.joy-it.net/en/products/COM-KY023JM) supports 3.3 V operation. The amp still uses 5 V; its supply must not go to the thumbstick or a GPIO. The ADC input has a pull-down.
 
 3. Remove the separate ignition button and move the thumbstick's **SW wire from GPIO7 to GPIO8**. The thumbstick supplies the momentary button internally. Leave GPIO7 unconnected. No external pull-up resistor is needed.
 4. Leave the button released. Connect either USB-C socket to the PC; the bench session uses the socket marked **USB**, which identifies itself with the S3 MAC above. Firmware mirrors diagnostics to native **USB** and **UART**. Identify the spare S3 and back up existing flash before its first upload; connecting wires alone does not install it.
-5. Open its serial port at **115200 baud**. With the stick released, `throttle=` must settle to **0.00**. Click and release the thumbstick: expect amber cranking followed by green and approximately 750 RPM with the default V8. The engine stays on after release. Push the stick to rev in neutral; release to return to idle. Click again to stop, including while revving or cranking. The already-installed button-mode firmware needs no upload for this wiring change.
+5. Open its serial port at **115200 baud**. With the stick released, `throttle=` must settle to **0.00**. Click and release: the starter spins for about 0.75 seconds, the engine catches with a short RPM flare, and settles to green/running by 1.35 seconds (750 RPM with the default V8). The engine stays on after release. Push to rev in neutral, or flick right and re-centre to select first gear before accelerating. Click again to stop, including during the start sequence.
+
+The gear axis must stay within 350 ADC counts of centre (provisional 2048) for 60 ms before arming. A deflection of at least 1000 counts held for 20 ms shifts once; holding it cannot repeat, and reversing directly cannot shift again without re-centring. A held/disconnected stick at boot cannot shift. `gearAxisInverted` reverses direction if physical right reads low. Telemetry reports `x_adc`, `gear`, cumulative successful `shifts`, `speed`, `load` and `starter` level. Startup and diagnostic tones inhibit flick shifts.
+
+Neutral free-revs without road speed. In gears 1–6, ratios couple RPM to road speed; each upshift briefly cuts torque, drops RPM and increases engine load at the same throttle. Road speed carries through the shift, with less acceleration in taller gears. Release the throttle to coast. Downshifts that would exceed the rev limit are rejected; first shifts down to neutral. This is a toy vehicle model, not calibrated vehicle physics.
 
 `ignitionIsButton=true` in `board_config.h` selects this breadboard profile. A button held during boot cannot start the engine until released and pressed again. A press with throttle held is rejected; centring the stick while still holding the button does not start it later. Holding or ordinary contact bounce does not repeat the toggle. For a future maintained toggle, set `ignitionIsButton=false`, rebuild and upload; that mode requires off/on and stays on only while the switch is closed. Telemetry includes `button_mode=1` for the button profile, raw `key=0/1`, and `state=0/1/2` for off/cranking/running.
 
@@ -122,7 +127,7 @@ This helper opens only the matching USB identity, does not deliberately reset or
 
 Add `--live` to print each arriving sample during a guided bench test. Telemetry is 1 Hz; hold an input for at least two seconds when checking its raw level. Brief button clicks can fall between samples even though the firmware polls and debounces at 100 Hz.
 
-For a live engine-level comparison, add `--gain 0.8 --live`. This **writes** an engine gain command without restarting the board or starting the engine. Accepted values are 0.0 through 0.8 in steps of 0.1; native USB digits `0` through `8` do the same. Existing smoothing ramps the change. Gain is RAM-only and resets to the configured 0.22 at reboot. Keep the speaker away from your ear when raising it. Diagnostic beep level is independent of this setting.
+For a live engine-level comparison, add `--gain 0.8 --live`. This **writes** an engine gain command without restarting the board or starting the engine. Accepted values are 0.0 through 0.8 in steps of 0.1; native USB digits `0` through `8` do the same. Existing smoothing ramps the change. Commands are RAM-only and reset to the configured **0.8** at reboot. Keep the speaker away from your ear when raising it. Diagnostic beep level is independent of this setting.
 
 `pcm_peak` and `pcm_rms` measure the actual packed samples sent to I²S, normalized to full scale. Each report samples one 128-frame (8 ms at 16 kHz) block; it is **not** a peak/RMS measurement over the entire second and can miss intervening peaks. These fields establish digital signal level, not speaker volume or amplifier headroom.
 
@@ -130,7 +135,7 @@ For an output-path comparison, add `--tone --seconds 15`. This **writes** a `t` 
 
 **Current bench state:** sample rate is temporarily **16 kHz**, compared with the original 32 kHz. Luke reports distorted beeps at both rates. This is an unresolved diagnostic state, not a sound-quality fix. The fixed sample-count engine delay and gain smoothing also take twice as long at 16 kHz; judge this comparison using the independent beeps. Return to the intended engine rate after resolving the output fault.
 
-The standalone Iris driver subsequently produced user-confirmed quiet, clean notes. Ignition now matches its signed 16-bit sample conversion, placed in the high 16 bits of each 32-bit stereo slot. Luke reported roughly 90% improvement, but insufficient volume. Restoring gain to 0.22 still sounded only 5–10% as loud as required. A verified live 0.8 rev test reached roughly 30% perceived volume with static still present. A separate four-level Iris reference test then produced user-confirmed clear, properly loud tones. The current engine comparison matches its six 320-frame DMA buffers, retaining the rest of Ignition's output settings and 128-frame synthesis blocks; its listening result remains pending. Boot gain remains 0.22, with 0.8 selected temporarily over USB for comparison.
+The engine retains the clean reference's signed PCM16 conversion in the high 16 bits of each 32-bit slot and six 320-frame DMA buffers. Luke heard the same static in the original host render and confirmed that disabling random intake/firing texture removed it. Combustion presets now envelope those random components using positive RPM acceleration, with about 60 ms attack and 350 ms release, while preserving the deterministic engine tone and the intake/roughness depth controls. Steady revs no longer sustain the random hiss. Turbine/ion texture remains unchanged. The starter motor is a separate deterministic firmware layer; browser and firmware share catch timing/RPM behavior, but this dedicated motor layer is currently firmware-only.
 
 The browser's Tune controls remain the patch editor. Save a patch, then append it as the ninth firmware character:
 
@@ -147,6 +152,8 @@ The portable core has no device dependencies and runs under host g++ for checks:
 
 ```powershell
 python tools/check_firmware.py
+python tools/check_stick_shift.py
+python tools/check_starter_sound.py
 node --test tests/*.test.mjs
 ```
 

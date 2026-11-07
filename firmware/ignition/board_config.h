@@ -3,6 +3,9 @@
 // GPIO numbers, not connector position numbers. Not the classic ESP32 pinout.
 namespace board {
 constexpr int throttle=4,gearUp=5,gearDown=6,brake=7,ignitionSwitch=8,boost=9,character=10;
+constexpr int gearAxis=1; // Thumbstick VRx; independent of optional gear buttons.
+constexpr int gearCenter=2048,gearTrigger=1000,gearDeadZone=350;
+constexpr bool gearAxisInverted=false; // Change if physical right reads low.
 constexpr bool ignitionIsButton=true; // GPIO8 -> momentary button -> GND; tap to start/stop
 // Preserve Iris's MAX98357A harness and duplicate mono into both 32-bit slots.
 constexpr int bclk=15,wordSelect=16,dataOut=17,rgb=48;
@@ -11,6 +14,6 @@ constexpr int bclk=15,wordSelect=16,dataOut=17,rgb=48;
 // Provisional raw ADC calibration. Record rest and desired full-forward readings.
 // A full reading below rest reverses direction without changing centre = idle.
 constexpr int throttleRest=2048,throttleFull=3900,throttleDeadZone=300;
-constexpr float volume=.22f; // restore the original engine level with PCM16 output
+constexpr float volume=.8f; // retain the listening-test gain across power cycles
 constexpr int blockFrames=128;
 }

@@ -66,7 +66,7 @@ def main():
                     records.append(sample)
                     if args.live:
                         controls = ' '.join(f'{key}={sample.get(key, "?")}'
-                                            for key in ['state', 'adc', 'throttle', 'rpm', 'volume', 'pcm_peak', 'pcm_rms', 'tone', 'write_errors'])
+                                            for key in ['state', 'adc', 'x_adc', 'throttle', 'gear', 'shifts', 'rpm', 'speed', 'load', 'starter', 'volume', 'pcm_peak', 'write_errors'])
                         print(f't={time.monotonic()-started:.1f}s {controls}', flush=True)
             if len(pending) > 4096:
                 pending = b''

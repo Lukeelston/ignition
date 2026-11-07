@@ -43,16 +43,22 @@ int main(int argc,char** argv) {
   tone.start();assert(tone.active()&&tone.next()==0);
   tone.stop();assert(!tone.active()&&tone.next()==0);
   Drive d;d.configure(kPatches[0]);assert(d.rpm==0);d.start();
-  advance(d,100);assert(d.state==Drive::Running);assert(std::fabs(d.rpm-750)<2);
+  advance(d,30);assert(d.state==Drive::Cranking&&d.starter>.9f);assert(!d.shift(1));
+  advance(d,50);assert(d.rpm>750*1.3f);
+  advance(d,70);assert(d.state==Drive::Running&&d.starter==0);assert(std::fabs(d.rpm-750)<2);
   advance(d,300,1);assert(d.rpm>6000&&d.speed==0);
   advance(d,300);assert(d.shift(1));advance(d,600,.85f);
   const float before=d.rpm;assert(d.speed>20&&before>3000);
   assert(d.shift(1));advance(d,60,.85f);assert(d.rpm<before*.85f);
+  Drive loaded;loaded.start();advance(loaded,150);loaded.shift(1);advance(loaded,500,.8f);
+  const float loadBefore=loaded.load,roadSpeed=loaded.speed;
+  assert(loaded.shift(1)&&loaded.speed==roadSpeed);advance(loaded,5,.8f);assert(loaded.load<loadBefore);
+  advance(loaded,40,.8f);assert(loaded.load>loadBefore+.03f);
   const float speed=d.speed;advance(d,100,0,true);assert(d.speed<speed);
   d.stop();assert(d.rpm==0&&d.speed==0&&d.gear==0);
-  Drive a,b;for(auto* x:{&a,&b}){x->start();advance(*x,100);x->shift(1);}
+  Drive a,b;for(auto* x:{&a,&b}){x->start();advance(*x,150);x->shift(1);}
   advance(a,200,.65f);advance(b,200,.65f,false,true);assert(b.speed>a.speed*1.1f);
-  d.start();advance(d,100);for(int g=1;g<=6;g++){assert(d.shift(1));advance(d,30);}
+  d.start();advance(d,150);for(int g=1;g<=6;g++){assert(d.shift(1));advance(d,30);}
   advance(d,6000,1,false,true);assert(!d.shift(-1)&&d.overRev);assert(d.rpm<=7000);
 
   // Breadboard ignition button: one tap latches on, another tap stops.
@@ -60,7 +66,7 @@ int main(int argc,char** argv) {
   auto buttonTick=[&](int n){for(int i=0;i<n;i++){buttonNow+=10;button.update(buttonNow,buttonIn);}};
   buttonTick(5);buttonIn.ignition=true;buttonTick(5);
   assert(button.drive.state==Drive::Cranking);
-  buttonIn.ignition=false;buttonTick(100);
+  buttonIn.ignition=false;buttonTick(150);
   assert(button.drive.state==Drive::Running); // Release must not switch off.
   buttonIn.throttle=1;buttonTick(100);assert(button.drive.rpm>6000);
   buttonIn.ignition=true;buttonTick(100);assert(button.drive.state==Drive::Off);
@@ -71,7 +77,7 @@ int main(int argc,char** argv) {
   buttonTick(5);assert(button.drive.state==Drive::Off);
   buttonIn.throttle=1;buttonIn.ignition=true;buttonTick(5);assert(button.drive.state==Drive::Off);
   buttonIn.throttle=0;buttonTick(100);assert(button.drive.state==Drive::Off); // No delayed start.
-  buttonIn.ignition=false;buttonTick(5);buttonIn.ignition=true;buttonTick(100);
+  buttonIn.ignition=false;buttonTick(5);buttonIn.ignition=true;buttonTick(150);
   assert(button.drive.state==Drive::Running);
   buttonTick(100);assert(button.drive.state==Drive::Running); // Holding cannot toggle repeatedly.
   buttonIn.ignition=false;buttonTick(5);buttonIn.ignition=true;buttonTick(5);
@@ -84,7 +90,7 @@ int main(int argc,char** argv) {
   for(uint32_t t=0;t<1000;t+=10)heldButton.update(t,heldIn);
   assert(heldButton.drive.state==Drive::Off);
   heldIn.ignition=false;for(uint32_t t=1000;t<1100;t+=10)heldButton.update(t,heldIn);
-  heldIn.ignition=true;for(uint32_t t=1100;t<2200;t+=10)heldButton.update(t,heldIn);
+  heldIn.ignition=true;for(uint32_t t=1100;t<2700;t+=10)heldButton.update(t,heldIn);
   assert(heldButton.drive.state==Drive::Running);
 
   // Maintained-switch compatibility: held ignition at boot must not start.
@@ -94,7 +100,7 @@ int main(int argc,char** argv) {
   tick(100);assert(c.drive.state==Drive::Off);
   in.ignition=false;tick(5);in.throttle=1;in.ignition=true;tick(10);assert(c.drive.state==Drive::Off);
   in.throttle=0;tick(10);assert(c.drive.state==Drive::Off);
-  in.ignition=false;tick(5);in.ignition=true;tick(100);assert(c.drive.state==Drive::Running);
+  in.ignition=false;tick(5);in.ignition=true;tick(150);assert(c.drive.state==Drive::Running);
   for(int i=0;i<4;i++){in.up=!in.up;tick(1);}assert(c.drive.gear==0);
   in.up=true;tick(100);assert(c.drive.gear==1);tick(100);assert(c.drive.gear==1);
   in.up=false;tick(5);in.up=true;tick(5);assert(c.drive.gear==2);
@@ -114,13 +120,31 @@ int main(int argc,char** argv) {
   assert(normalizeThrottle(150,150,3900,100)==0&&normalizeThrottle(3900,150,3900,100)==1);
   Controller stick(false);Inputs stickIn;uint32_t stickNow=0;
   auto stickTick=[&](int raw,int n){for(int i=0;i<n;i++){stickNow+=10;stickIn.throttle=normalizeThrottle(raw,2048,3900,300);stick.update(stickNow,stickIn);}};
-  stickTick(2200,5);stickIn.ignition=true;stickTick(2200,100);
+  stickTick(2200,5);stickIn.ignition=true;stickTick(2200,150);
   assert(stick.drive.state==Drive::Running&&std::fabs(stick.drive.rpm-750)<2);
   stickTick(3900,300);assert(stick.drive.rpm>6000);
   stickTick(2048,300);assert(std::fabs(stick.drive.rpm-750)<2);
   stickIn.ignition=false;stickTick(3900,5);stickIn.ignition=true;stickTick(3900,100);
   assert(stick.drive.state==Drive::Off);
 
+  // Isolate random texture by comparing two seeds through the real synthesizer.
+  // It should swell during acceleration and decay even at held high throttle.
+  {
+    Patch pa=kPatches[0];pa.rpm=750;pa.load=.12f;pa.seed=7;
+    Patch pb=pa;pb.seed=99;Synth sa(pa),sb(pb);
+    auto difference=[&](int frames,float rpm,float load){
+      double energy=0;int count=0;float x[128],y[128];
+      while(frames>0){const int n=std::min(128,frames);sa.process(x,n,rpm,load,.8f);sb.process(y,n,rpm,load,.8f);
+        for(int i=0;i<n;i++){const double diff=x[i]-y[i];energy+=diff*diff;++count;}frames-=n;}
+      return std::sqrt(energy/count);
+    };
+    assert(difference(sampleRate,750,.12f)<1e-6);
+    const double swell=difference(sampleRate,6000,.8f);assert(swell>.0001);
+    difference(4*sampleRate,6000,.8f);
+    assert(difference(sampleRate,6000,.8f)<swell*.05);
+    difference(3*sampleRate,750,.12f);
+    assert(difference(sampleRate,750,.12f)<swell*.05);
+  }
   // Every shipping patch must produce finite bounded sound, and stop to true silence.
   float buffer[128];double totalEnergy=0;float peak=0;
   std::ofstream raw(std::string(argv[1])+"/firmware-v8.pcm",std::ios::binary);

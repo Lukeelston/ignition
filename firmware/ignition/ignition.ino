@@ -6,21 +6,25 @@
 #include "presets.h"
 #include "board_config.h"
 #include "test_tone.h"
+#include "stick_shift.h"
+#include "starter_sound.h"
 
 #if !defined(CONFIG_IDF_TARGET_ESP32S3)
 #error This wiring profile is for ESP32-S3 only.
 #endif
 
 using namespace ignition;
-struct AudioCommand {uint32_t time;size_t preset;float rpm,load,volume;uint32_t toneRequest=0;};
+struct AudioCommand {uint32_t time;size_t preset;float rpm,load,volume;uint32_t toneRequest=0;float starter=0;};
 struct AudioStats {uint32_t blocks=0,renderMaxUs=0,renderLate=0,writeErrors=0;bool toneActive=false;PCMLevels pcm;};
 static QueueHandle_t commands=nullptr,statistics=nullptr;
 static i2s_chan_handle_t tx=nullptr;
 static Controller controller(board::ignitionIsButton);
+static StickShift gearStick({board::gearCenter,board::gearTrigger,board::gearDeadZone,board::gearAxisInverted,60,20});
 static Synth synth;
 static size_t currentPreset=0;
 static bool ready=false;
-static int throttleRaw=0;
+static int throttleRaw=0,gearRaw=0;
+static uint32_t stickShifts=0;
 static float filteredThrottle=0;
 
 // Keep both USB sockets useful. USB telemetry is best-effort: a closed or stalled
@@ -39,7 +43,7 @@ static void report(const char* format,...){
 static void audioTask(void*) {
   float mono[board::blockFrames];int32_t stereo[board::blockFrames*2];
   AudioCommand command{};AudioStats stats;size_t lastPreset=kPresetCount;
-  TestTone tone;uint32_t lastToneRequest=0;
+  TestTone tone;StarterSound starter(sampleRate);uint32_t lastToneRequest=0;
   for(;;){
     xQueuePeek(commands,&command,0);
     const uint32_t started=micros();
@@ -49,6 +53,8 @@ static void audioTask(void*) {
     if(command.toneRequest!=lastToneRequest){lastToneRequest=command.toneRequest;tone.start();}
     if(!fresh||stats.writeErrors)tone.stop();
     synth.process(mono,board::blockFrames,command.rpm,command.load,fresh&&!stats.writeErrors?command.volume:0);
+    const float starterLevel=fresh&&!stats.writeErrors?command.starter*command.volume:0;
+    for(int i=0;i<board::blockFrames;i++)mono[i]+=starter.next(starterLevel);
     if(tone.active())for(int i=0;i<board::blockFrames;i++)mono[i]+=tone.next();
     stats.toneActive=tone.active();
     for(int i=0;i<board::blockFrames;i++)stereo[2*i]=stereo[2*i+1]=pcm32(mono[i]);
@@ -91,15 +97,17 @@ static bool beginAudio(){
 void setup(){
   Serial0.begin(115200); // UART socket; no wait for a connected terminal
 #if ARDUINO_USB_CDC_ON_BOOT
-  Serial.begin(115200);Serial.setTxTimeoutMs(0); // native USB socket, non-blocking
+  Serial.setTxBufferSize(1024);Serial.begin(115200);Serial.setTxTimeoutMs(0); // allocate before enabling USB interrupts
 #endif
   for(int pin:{board::gearUp,board::gearDown,board::brake,board::ignitionSwitch,board::boost,board::character})pinMode(pin,INPUT_PULLUP);
   pinMode(board::throttle,INPUT_PULLDOWN);analogReadResolution(12);analogSetPinAttenuation(board::throttle,ADC_11db);
+  pinMode(board::gearAxis,INPUT_PULLDOWN);analogSetPinAttenuation(board::gearAxis,ADC_11db);
   controller.drive.configure(kPatches[0]);
   ready=beginAudio();
   rgbLedWrite(board::rgb,ready?0:20,0,ready?5:0);
   report("Ignition handheld 0.4 | ESP32-S3 | detected_flash=%u | PSRAM unused | audio=%s | sample_rate=%u\n",ESP.getFlashChipSize(),ready?"ready":"FAILED",sampleRate);
   report("Thumbstick: rest=%d full=%d dead_zone=%d. USB/UART: 115200.\n",board::throttleRest,board::throttleFull,board::throttleDeadZone);
+  report("VRx GPIO%d: centre to arm; right/high shifts up, left/low down. Return to centre each time.\n",board::gearAxis);
   report(board::ignitionIsButton?"Centre stick. Release ignition button, then tap to start/stop.\n":"Centre stick. Switch ignition OFF, then ON. No automatic boot sound.\n");
   report("USB: t = quiet beeps; digits 0..8 = engine gain 0.0..0.8. Gain resets on reboot.\n");
 }
@@ -121,6 +129,7 @@ void loop(){
 #endif
   const bool testing=toneRequest&&uint32_t(now-toneStarted)<TestTone::totalFrames*1000u/sampleRate+250;
   throttleRaw=analogRead(board::throttle);
+  gearRaw=analogRead(board::gearAxis);
   const float throttle=normalizeThrottle(throttleRaw,board::throttleRest,board::throttleFull,board::throttleDeadZone);
   filteredThrottle+=(throttle-filteredThrottle)*.45f;
   Inputs inputs;inputs.throttle=filteredThrottle<.01f?0:filteredThrottle;
@@ -130,7 +139,11 @@ void loop(){
   if(controller.nextCharacter){currentPreset=(currentPreset+1)%kPresetCount;controller.drive.configure(kPatches[currentPreset]);}
   xQueuePeek(statistics,&stats,0);
   if(stats.writeErrors||testing)controller.drive.stop();
-  const AudioCommand command{now,currentPreset,controller.drive.rpm,controller.drive.load,controller.drive.state!=Drive::Off?outputVolume:0,toneRequest};
+  if(controller.drive.state==Drive::Running&&!inputs.up&&!inputs.down){
+    const int direction=gearStick.update(gearRaw,now);
+    if(direction&&controller.drive.shift(direction))++stickShifts;
+  }else gearStick.reset();
+  const AudioCommand command{now,currentPreset,controller.drive.rpm,controller.drive.load,controller.drive.state!=Drive::Off?outputVolume:0,toneRequest,controller.drive.starter};
   xQueueOverwrite(commands,&command);
   if(now-lastLed>=50){
     lastLed=now;
@@ -142,7 +155,7 @@ void loop(){
   }
   if(now-lastReport>=1000){
     lastReport=now;
-    report("preset=%s gear=%d rpm=%.0f speed=%.1f throttle=%.2f adc=%d key=%d state=%d button_mode=%d volume=%.2f pcm_peak=%.5f pcm_rms=%.5f tone=%d tone_request=%u blocks=%u render_max_us=%u render_late=%u write_errors=%u heap=%u\n",kPresetNames[currentPreset],controller.drive.gear,controller.drive.rpm,controller.drive.speed,inputs.throttle,throttleRaw,inputs.ignition,int(controller.drive.state),board::ignitionIsButton,outputVolume,stats.pcm.peak,stats.pcm.rms,stats.toneActive,toneRequest,stats.blocks,stats.renderMaxUs,stats.renderLate,stats.writeErrors,ESP.getFreeHeap());
+    report("preset=%s gear=%d rpm=%.0f speed=%.1f load=%.2f starter=%.2f throttle=%.2f adc=%d x_adc=%d shifts=%u key=%d state=%d button_mode=%d volume=%.2f pcm_peak=%.5f pcm_rms=%.5f tone=%d tone_request=%u blocks=%u render_max_us=%u render_late=%u write_errors=%u heap=%u\n",kPresetNames[currentPreset],controller.drive.gear,controller.drive.rpm,controller.drive.speed,controller.drive.load,controller.drive.starter,inputs.throttle,throttleRaw,gearRaw,stickShifts,inputs.ignition,int(controller.drive.state),board::ignitionIsButton,outputVolume,stats.pcm.peak,stats.pcm.rms,stats.toneActive,toneRequest,stats.blocks,stats.renderMaxUs,stats.renderLate,stats.writeErrors,ESP.getFreeHeap());
   }
   vTaskDelayUntil(&wake,pdMS_TO_TICKS(10));
 }
