@@ -66,7 +66,9 @@ static void audioTask(void*) {
 
 static bool beginAudio(){
   i2s_chan_config_t channel=I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_1,I2S_ROLE_MASTER);
-  channel.dma_desc_num=4;channel.dma_frame_num=board::blockFrames;channel.auto_clear=true;
+  // Match the output buffering that produced clear, loud reference tones.
+  // Synthesis still renders 128 frames at a time; I2S accepts partial buffers.
+  channel.dma_desc_num=6;channel.dma_frame_num=320;channel.auto_clear=true;
   if(i2s_new_channel(&channel,&tx,nullptr)!=ESP_OK)return false;
   i2s_std_config_t config{};
   config.clk_cfg=I2S_STD_CLK_DEFAULT_CONFIG(sampleRate);
