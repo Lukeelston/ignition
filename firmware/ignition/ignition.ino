@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <driver/i2s_std.h>
 #include <freertos/queue.h>
+#include <cstdarg>
 #include "core.h"
 #include "presets.h"
 #include "board_config.h"
@@ -20,6 +21,19 @@ static size_t currentPreset=0;
 static bool ready=false;
 static int throttleRaw=0;
 static float filteredThrottle=0;
+
+// Keep both USB sockets useful. USB telemetry is best-effort: a closed or stalled
+// monitor must never block the input loop long enough to trip the audio watchdog.
+static void report(const char* format,...){
+  char message[384];va_list args;va_start(args,format);
+  const int result=vsnprintf(message,sizeof(message),format,args);va_end(args);
+  if(result<=0)return;
+  const size_t length=std::min(size_t(result),sizeof(message)-1);
+  Serial0.write(reinterpret_cast<const uint8_t*>(message),length);
+#if ARDUINO_USB_CDC_ON_BOOT
+  if(Serial&&Serial.availableForWrite()>=int(length))Serial.write(reinterpret_cast<const uint8_t*>(message),length);
+#endif
+}
 
 static void audioTask(void*) {
   float mono[board::blockFrames];int32_t stereo[board::blockFrames*2];
@@ -66,15 +80,18 @@ static bool beginAudio(){
 }
 
 void setup(){
-  Serial.begin(115200); // UART socket; no wait for a connected terminal
+  Serial0.begin(115200); // UART socket; no wait for a connected terminal
+#if ARDUINO_USB_CDC_ON_BOOT
+  Serial.begin(115200);Serial.setTxTimeoutMs(0); // native USB socket, non-blocking
+#endif
   for(int pin:{board::gearUp,board::gearDown,board::brake,board::ignitionSwitch,board::boost,board::character})pinMode(pin,INPUT_PULLUP);
   pinMode(board::throttle,INPUT_PULLDOWN);analogReadResolution(12);analogSetPinAttenuation(board::throttle,ADC_11db);
   controller.drive.configure(kPatches[0]);
   ready=beginAudio();
   rgbLedWrite(board::rgb,ready?0:20,0,ready?5:0);
-  Serial.printf("Ignition handheld 0.2 | ESP32-S3 | detected_flash=%u | PSRAM unused | audio=%s\n",ESP.getFlashChipSize(),ready?"ready":"FAILED");
-  Serial.printf("Thumbstick: rest=%d full=%d dead_zone=%d. UART: 115200.\n",board::throttleRest,board::throttleFull,board::throttleDeadZone);
-  Serial.println("Centre stick. Switch ignition OFF, then ON. No automatic boot sound.");
+  report("Ignition handheld 0.2 | ESP32-S3 | detected_flash=%u | PSRAM unused | audio=%s\n",ESP.getFlashChipSize(),ready?"ready":"FAILED");
+  report("Thumbstick: rest=%d full=%d dead_zone=%d. USB/UART: 115200.\n",board::throttleRest,board::throttleFull,board::throttleDeadZone);
+  report("Centre stick. Switch ignition OFF, then ON. No automatic boot sound.\n");
 }
 
 void loop(){
@@ -105,7 +122,7 @@ void loop(){
   }
   if(now-lastReport>=1000){
     lastReport=now;
-    Serial.printf("preset=%s gear=%d rpm=%.0f speed=%.1f throttle=%.2f adc=%d blocks=%u render_max_us=%u render_late=%u write_errors=%u heap=%u\n",kPresetNames[currentPreset],controller.drive.gear,controller.drive.rpm,controller.drive.speed,inputs.throttle,throttleRaw,stats.blocks,stats.renderMaxUs,stats.renderLate,stats.writeErrors,ESP.getFreeHeap());
+    report("preset=%s gear=%d rpm=%.0f speed=%.1f throttle=%.2f adc=%d blocks=%u render_max_us=%u render_late=%u write_errors=%u heap=%u\n",kPresetNames[currentPreset],controller.drive.gear,controller.drive.rpm,controller.drive.speed,inputs.throttle,throttleRaw,stats.blocks,stats.renderMaxUs,stats.renderLate,stats.writeErrors,ESP.getFreeHeap());
   }
   vTaskDelayUntil(&wake,pdMS_TO_TICKS(10));
 }

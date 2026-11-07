@@ -2,7 +2,7 @@
 
 Target: the middle board in Luke's 2026-11-06 photo, marked **ESP32-S3-WROOM-1**, Lonely Binary Gold Edition, RGB@IO48. The left board has the same visible layout but its module markings are obscured. The smaller board on the right is a classic ESP32; this firmware's pin map is not for that board.
 
-The [manufacturer's matching board guide](https://learn.lonelybinary.com/boards/esp32-s3) describes an N16R8 variant (16 MB flash, 8 MB PSRAM). The photo does not establish this particular unit's capacity, so this build uses a 4 MB flash layout and no PSRAM. Runtime prints detected flash size. GPIO35–37, boot-strapping pins, native USB19/20 and UART43/44 remain unused. Pin assignments were checked against the [manufacturer pinout](https://learn.lonelybinary.com/pinouts/esp32-s3) and [Espressif's board reference](https://documentation.espressif.com/esp-dev-kits/en/latest/esp32s3/esp32-s3-devkitc-1/user_guide_v1.0.html).
+The [manufacturer's matching board guide](https://learn.lonelybinary.com/boards/esp32-s3) describes an N16R8 variant (16 MB flash, 8 MB PSRAM). A live `esptool flash-id` probe on 2026-11-06 confirmed the connected toy as **ESP32-S3 revision 0.2, 16 MB flash, 8 MB embedded PSRAM**, MAC/USB serial **58:e6:c5:68:65:c8**, then COM9. Re-enumerate ports by serial before each device operation; COM numbers may change. COM7's different serial belongs to the printer display and must not be used. This build retains its conservative 4 MB flash layout and leaves PSRAM disabled. GPIO35–37 and boot-strapping pins remain unused; USB19/20 and UART43/44 are reserved for their USB sockets. Pin assignments were checked against the [manufacturer pinout](https://learn.lonelybinary.com/pinouts/esp32-s3) and [Espressif's board reference](https://documentation.espressif.com/esp-dev-kits/en/latest/esp32s3/esp32-s3-devkitc-1/user_guide_v1.0.html).
 
 ## Reuse Iris's audio assembly
 
@@ -61,8 +61,8 @@ Luke has a thumbstick, buttons, switches and rotary encoders. The thumbstick rep
 The conventional joystick is two potentiometers plus a switch. Supply it from 3.3 V so its analog outputs stay within the S3 supply rails. The [Joy-IT KY-023 specification](https://www.joy-it.net/en/products/COM-KY023JM) supports 3.3 V operation. The amp still uses 5 V; its supply must not go to the thumbstick or a GPIO. The ADC input has a pull-down.
 
 3. Wire a plain, unlit ignition toggle between **GPIO8** and **GND**. On a simple three-terminal SPDT toggle, use the common terminal and one switched terminal (often centre and one outer; check continuity if unmarked). Leave the other terminal unused. Do not guess the terminals on an illuminated switch.
-4. Leave ignition off. Connect the board's **UART** USB-C socket to the PC. Identify the spare S3 and back up existing flash before uploading this firmware; connecting wires alone does not install it.
-5. After upload, open UART at **115200 baud**. With the stick released, `throttle=` must settle to **0.00**. Switch ignition off, then on: expect amber cranking followed by green and approximately 750 RPM with the default V8. Push the stick to rev in neutral; release to return to idle. Click and hold to brake. Switch off to silence.
+4. Leave ignition off. Connect either USB-C socket to the PC; the bench session uses the socket marked **USB**, which identifies itself with the S3 MAC above. Firmware now mirrors diagnostics to native **USB** and **UART**. Identify the spare S3 and back up existing flash before its first upload; connecting wires alone does not install it.
+5. After upload, open its serial port at **115200 baud**. With the stick released, `throttle=` must settle to **0.00**. Switch ignition off, then on: expect amber cranking followed by green and approximately 750 RPM with the default V8. Push the stick to rev in neutral; release to return to idle. Click and hold to brake. Switch off to silence.
 
 Default calibration in `board_config.h`: `throttleRest=2048`, `throttleFull=3900`, `throttleDeadZone=300`, all **raw ADC counts**. These are provisional, not a measurement of Luke's stick. Record `adc=` at centre and at the desired full-forward position; put those readings in rest/full. A full reading below rest automatically reverses travel. The centre dead zone and the entire opposite direction produce zero throttle. There is no boot auto-calibration that could mistake a held stick for centre. If motion is sideways, use VRx instead of VRy on GPIO4; if backwards, change the full endpoint. Rebuild and upload after calibration changes. The [ESP32 ADC reference](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/adc.html) explains raw 12-bit readings and attenuation; raw counts are not calibrated voltages.
 
@@ -78,13 +78,21 @@ RGB: dim blue = off, amber = cranking, green = running, purple = boost, red = re
 
 ## Build and tune
 
-Compiled with installed **Arduino CLI 1.5.1**, **Espressif Arduino core 3.3.12**, ESP32-S3 at 240 MHz, 4 MB partitions and PSRAM disabled. No third-party Arduino libraries. Run from the project root:
+Compiled with installed **Arduino CLI 1.5.1**, **Espressif Arduino core 3.3.12**, ESP32-S3 at 240 MHz, 4 MB partitions, PSRAM disabled, and hardware USB CDC enabled on boot. USB logging is best-effort with a zero write timeout so a stopped monitor cannot stall the controls. No third-party Arduino libraries. Run from the project root:
 
 ```powershell
 python tools/build_firmware.py
 ```
 
-This **only compiles**. It neither picks a COM port nor uploads anything. Output is in `firmware/build/esp32s3`; build log in `firmware/build/compile.log`. Identify the actual connected spare S3 and preserve any existing firmware before the first upload. No device identity has been verified and no upload has occurred in this phase.
+This **only compiles**. It neither picks a COM port nor uploads anything. Output is in `firmware/build/esp32s3`; build log in `firmware/build/compile.log`. Identify the actual connected spare S3 and preserve any existing firmware before the first upload. The live toy identity is recorded above; see `docs/verification.md` for the latest upload and bench evidence.
+
+For a bounded, read-only capture over the native USB socket (requires Python `pyserial`):
+
+```powershell
+python tools/read_board.py --serial 58:e6:c5:68:65:c8 --seconds 8
+```
+
+This helper opens only the matching USB identity, does not deliberately reset or write to the board, saves parsed telemetry in `evidence/board-*.json`, and closes the port afterward. It exits unsuccessfully if fewer than two valid samples arrive. Parsing is separate from audio verification: advancing blocks do not prove sound at the speaker.
 
 The browser's Tune controls remain the patch editor. Save a patch, then append it as the ninth firmware character:
 
@@ -108,4 +116,4 @@ Checks cover centred-stick idle/dead zone/opposite travel, either endpoint direc
 
 Audio runs on a separate task with 128 frames per block, four DMA buffers, 32 kHz output, duplicated 32-bit stereo slots and continuous silent clocks while off. No Wi-Fi or Bluetooth is initialized. Stale input updates ramp to silence after 250 ms; an I²S write fault latches mute until reboot. Serial reports maximum render time, blocks exceeding the 4,000 µs synthesis deadline, and write errors. Those counters do not independently prove that no DMA underrun or acoustic glitch occurred.
 
-**Hardware is unverified — needs user confirmation and a physical bench test.** Acceptance: identify and back up the target board; confirm stick centre/full travel, brake click and one shift per press; capture/listen to V8 and ion sounds; run two minutes with `render_max_us < 4000`, `render_late=0`, `write_errors=0`, no audible glitches; verify ignition-off silence and boot interlock; then assess comfortable volume and speaker heating. No battery or enclosure has been built yet.
+Board identity, a verified full-flash backup, flash readback, boot and live centred-stick zero throttle have passed on the connected S3. See `docs/verification.md` for measurements. **Physical sound and the full control sequence are unverified — need user confirmation and a bench test.** Remaining acceptance: confirm full stick travel, brake click and one shift per press; capture/listen to V8 and ion sounds; run active synthesis for two minutes with `render_max_us < 4000`, `render_late=0`, `write_errors=0`, no audible glitches; verify ignition-off silence and boot interlock; then assess comfortable volume and speaker heating. No battery or enclosure has been built yet.
