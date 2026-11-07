@@ -34,20 +34,45 @@ Numbers below are **GPIO labels**, not physical header positions. Each switch co
 
 | Control | S3 GPIO | Part / behavior |
 | --- | --- | --- |
-| Throttle | **4** | Analog spring-return trigger, or 10 kΩ linear pot for the bench |
+| Throttle | **4** | Thumbstick VRy; centre = idle, one direction = throttle |
 | Gear + | **5** | Normally-open momentary button; one upshift per press |
 | Gear − | **6** | Normally-open momentary button; one downshift per press |
-| Brake | **7** | Normally-open momentary button; hold to brake |
+| Brake | **7** | Thumbstick SW click, or normally-open button; hold to brake |
 | Ignition | **8** | Latching toggle; closed = on |
 | Boost | **9** | Latching toggle; closed = boost |
 | Character | **10** | Optional momentary button; cycles all eight sound presets |
 | Status RGB | **48** | Already on the board |
 
-Pot wiring: one outer terminal to **3V3**, the other to **GND**, centre/wiper to **GPIO4**. Use 3.3 V control signals only. For a trigger module, check its supply/output requirements before substituting it for the pot. The input has a pull-down, and the calibration/dead zone is configurable. Never feed the amp's 5 V supply into a GPIO.
+### First build: thumbstick and ignition
 
-To calibrate, watch `adc=` at 115200 baud while fully releasing and squeezing the trigger. Put those raw endpoints in `triggerReleased` and `triggerFull`; set `triggerReversed` if travel runs backward. Defaults 150/3900 are provisional bench endpoints. A pot is sufficient for the first sound test; the spring mechanism and enclosure remain physical design work.
+Luke has a thumbstick, buttons, switches and rotary encoders. The thumbstick replaces the proposed trigger for this bench build. The usual five-pin passive module is supported; confirm the printed labels before connecting. This mapping does not cover an unknown powered joystick controller.
 
-Power the board through its **UART** USB-C socket for the first bench session. Boot is silent. Release throttle, switch ignition **off**, then **on**. A held-on switch at boot cannot start the engine. An on edge with throttle held is rejected until another off/on cycle. Start in neutral, tap gear +, then squeeze. The automatic clutch handles launch. Gear − back from first enters neutral; no reverse gear.
+1. Unplug USB/power before adding wires. Use the selected **S3**, with the amp already connected as above.
+2. Connect the thumbstick by **labels**, not by its pin order:
+
+| Thumbstick label | S3 connection |
+| --- | --- |
+| GND | GND (same ground as the amp) |
+| VCC / +5V | **3V3**, even if the module label says +5V |
+| VRy | **GPIO4** |
+| SW | **GPIO7**, click and hold to brake |
+| VRx | Leave disconnected |
+
+The conventional joystick is two potentiometers plus a switch. Supply it from 3.3 V so its analog outputs stay within the S3 supply rails. The [Joy-IT KY-023 specification](https://www.joy-it.net/en/products/COM-KY023JM) supports 3.3 V operation. The amp still uses 5 V; its supply must not go to the thumbstick or a GPIO. The ADC input has a pull-down.
+
+3. Wire a plain, unlit ignition toggle between **GPIO8** and **GND**. On a simple three-terminal SPDT toggle, use the common terminal and one switched terminal (often centre and one outer; check continuity if unmarked). Leave the other terminal unused. Do not guess the terminals on an illuminated switch.
+4. Leave ignition off. Connect the board's **UART** USB-C socket to the PC. Identify the spare S3 and back up existing flash before uploading this firmware; connecting wires alone does not install it.
+5. After upload, open UART at **115200 baud**. With the stick released, `throttle=` must settle to **0.00**. Switch ignition off, then on: expect amber cranking followed by green and approximately 750 RPM with the default V8. Push the stick to rev in neutral; release to return to idle. Click and hold to brake. Switch off to silence.
+
+Default calibration in `board_config.h`: `throttleRest=2048`, `throttleFull=3900`, `throttleDeadZone=300`, all **raw ADC counts**. These are provisional, not a measurement of Luke's stick. Record `adc=` at centre and at the desired full-forward position; put those readings in rest/full. A full reading below rest automatically reverses travel. The centre dead zone and the entire opposite direction produce zero throttle. There is no boot auto-calibration that could mistake a held stick for centre. If motion is sideways, use VRx instead of VRy on GPIO4; if backwards, change the full endpoint. Rebuild and upload after calibration changes. The [ESP32 ADC reference](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/adc.html) explains raw 12-bit readings and attenuation; raw counts are not calibrated voltages.
+
+A full-travel trigger/pot can still use this firmware by setting rest/full to its measured endpoints and a smaller dead zone. An encoder is not wired or decoded in this profile.
+
+### Add gears and other controls after the first sound test
+
+Add normally-open buttons from **GPIO5 → GND** for gear + and **GPIO6 → GND** for gear −. On a four-leg tactile button, use terminals that are disconnected until pressed; the two legs on a connected pair would permanently hold the input. Add a boost toggle **GPIO9 → GND** and an optional character button **GPIO10 → GND**. All grounds may share a ground rail.
+
+Boot is silent. Centre the stick, switch ignition **off**, then **on**. A held-on switch at boot cannot start the engine. An on edge with throttle held is rejected until another off/on cycle. Start in neutral, tap gear +, then push the stick. The automatic clutch handles launch. Gear − back from first enters neutral; no reverse gear. A released stick idles the engine; a moving toy drivetrain still coasts until braked.
 
 RGB: dim blue = off, amber = cranking, green = running, purple = boost, red = rejected downshift/rev limit or audio fault (serial distinguishes them). Gear/RPM and the selected preset print over UART. This first firmware uses the existing LED, not a fabricated screen driver. A dedicated gear display is a later hardware addition.
 
@@ -68,7 +93,7 @@ node tools/export_firmware_patch.mjs C:/path/to/ignition-custom-patch.json
 python tools/build_firmware.py
 ```
 
-Running the exporter with no argument restores the original eight presets. All sound controls and seed are carried into the generated header; live RPM/load come from the trigger and drivetrain. Firmware edits use C++ and the Arduino toolchain, not JavaScript on the board.
+Running the exporter with no argument restores the original eight presets. All sound controls and seed are carried into the generated header; live RPM/load come from the thumbstick and drivetrain. Firmware edits use C++ and the Arduino toolchain, not JavaScript on the board.
 
 ## Verification and limits
 
@@ -79,8 +104,8 @@ python tools/check_firmware.py
 node --test tests/*.test.mjs
 ```
 
-Checks cover neutral/drive/shift/brake/boost, rejected over-rev, ignition at boot, held throttle on start, switch bounce, one shift per held button, finite bounded sound for eight patches, seed determinism, firing frequency and fading to exact silence. A 20-second drive trace is compared at 20 checkpoints against the browser model. The generated WAV is **host synthesis**, not a recording from the ESP.
+Checks cover centred-stick idle/dead zone/opposite travel, either endpoint direction, invalid calibration, stick-driven ignition/rev/return to idle, neutral/drive/shift/brake/boost, rejected over-rev, ignition at boot, held throttle on start, switch bounce, one shift per held button, finite bounded sound for eight patches, seed determinism, firing frequency and fading to exact silence. A 20-second drive trace is compared at 20 checkpoints against the browser model. The generated WAV is **host synthesis**, not a recording from the ESP.
 
 Audio runs on a separate task with 128 frames per block, four DMA buffers, 32 kHz output, duplicated 32-bit stereo slots and continuous silent clocks while off. No Wi-Fi or Bluetooth is initialized. Stale input updates ramp to silence after 250 ms; an I²S write fault latches mute until reboot. Serial reports maximum render time, blocks exceeding the 4,000 µs synthesis deadline, and write errors. Those counters do not independently prove that no DMA underrun or acoustic glitch occurred.
 
-**Hardware is unverified — needs user confirmation and a physical bench test.** Acceptance: identify and back up the target board; confirm trigger endpoints and one shift per press; capture/listen to V8 and ion sounds; run two minutes with `render_max_us < 4000`, `render_late=0`, `write_errors=0`, no audible glitches; verify ignition-off silence and boot interlock; then assess comfortable volume and speaker heating. No battery, enclosure or printed trigger has been built yet.
+**Hardware is unverified — needs user confirmation and a physical bench test.** Acceptance: identify and back up the target board; confirm stick centre/full travel, brake click and one shift per press; capture/listen to V8 and ion sounds; run two minutes with `render_max_us < 4000`, `render_late=0`, `write_errors=0`, no audible glitches; verify ignition-off silence and boot interlock; then assess comfortable volume and speaker heating. No battery or enclosure has been built yet.

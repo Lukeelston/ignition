@@ -72,10 +72,12 @@ public:
   }
 };
 struct Inputs {float throttle=0;bool up=false,down=false,brake=false,ignition=false,boost=false,character=false;};
-inline float normalizeTrigger(int raw,int low,int high){
-  if(high<=low)return 0;
-  const float fraction=bounded(float(raw-low)/(high-low),0,1);
-  return bounded((fraction-.03f)/.94f,0,1);
+inline float normalizeThrottle(int raw,int rest,int full,int deadZone){
+  if(deadZone<0)return 0;
+  const float travel=float(full)-rest,span=std::fabs(travel);
+  if(span<=deadZone)return 0;
+  const float movement=(float(raw)-rest)*(travel>0?1.f:-1.f);
+  return bounded((movement-deadZone)/(span-deadZone),0,1);
 }
 class Controller {
   Debounced up,down,brake,key,boost,character;

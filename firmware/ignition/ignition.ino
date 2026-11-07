@@ -18,7 +18,7 @@ static Controller controller;
 static Synth synth;
 static size_t currentPreset=0;
 static bool ready=false;
-static int triggerRaw=0;
+static int throttleRaw=0;
 static float filteredThrottle=0;
 
 static void audioTask(void*) {
@@ -73,7 +73,8 @@ void setup(){
   ready=beginAudio();
   rgbLedWrite(board::rgb,ready?0:20,0,ready?5:0);
   Serial.printf("Ignition handheld 0.2 | ESP32-S3 | detected_flash=%u | PSRAM unused | audio=%s\n",ESP.getFlashChipSize(),ready?"ready":"FAILED");
-  Serial.println("Release trigger. Switch ignition OFF, then ON. UART: 115200. No automatic boot sound.");
+  Serial.printf("Thumbstick: rest=%d full=%d dead_zone=%d. UART: 115200.\n",board::throttleRest,board::throttleFull,board::throttleDeadZone);
+  Serial.println("Centre stick. Switch ignition OFF, then ON. No automatic boot sound.");
 }
 
 void loop(){
@@ -82,9 +83,8 @@ void loop(){
   static AudioStats stats;
   const uint32_t now=millis();
   if(!ready){if(now-lastLed>=250){lastLed=now;rgbLedWrite(board::rgb,(now/250)%2?20:0,0,0);}delay(10);return;}
-  triggerRaw=analogRead(board::throttle);
-  float throttle=normalizeTrigger(triggerRaw,board::triggerReleased,board::triggerFull);
-  if(board::triggerReversed)throttle=1-throttle;
+  throttleRaw=analogRead(board::throttle);
+  const float throttle=normalizeThrottle(throttleRaw,board::throttleRest,board::throttleFull,board::throttleDeadZone);
   filteredThrottle+=(throttle-filteredThrottle)*.45f;
   Inputs inputs;inputs.throttle=filteredThrottle<.01f?0:filteredThrottle;
   inputs.up=digitalRead(board::gearUp)==LOW;inputs.down=digitalRead(board::gearDown)==LOW;inputs.brake=digitalRead(board::brake)==LOW;
@@ -105,7 +105,7 @@ void loop(){
   }
   if(now-lastReport>=1000){
     lastReport=now;
-    Serial.printf("preset=%s gear=%d rpm=%.0f speed=%.1f throttle=%.2f adc=%d blocks=%u render_max_us=%u render_late=%u write_errors=%u heap=%u\n",kPresetNames[currentPreset],controller.drive.gear,controller.drive.rpm,controller.drive.speed,inputs.throttle,triggerRaw,stats.blocks,stats.renderMaxUs,stats.renderLate,stats.writeErrors,ESP.getFreeHeap());
+    Serial.printf("preset=%s gear=%d rpm=%.0f speed=%.1f throttle=%.2f adc=%d blocks=%u render_max_us=%u render_late=%u write_errors=%u heap=%u\n",kPresetNames[currentPreset],controller.drive.gear,controller.drive.rpm,controller.drive.speed,inputs.throttle,throttleRaw,stats.blocks,stats.renderMaxUs,stats.renderLate,stats.writeErrors,ESP.getFreeHeap());
   }
   vTaskDelayUntil(&wake,pdMS_TO_TICKS(10));
 }

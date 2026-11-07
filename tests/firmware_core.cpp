@@ -36,8 +36,27 @@ int main(int argc,char** argv) {
   in.up=true;tick(100);assert(c.drive.gear==1);tick(100);assert(c.drive.gear==1);
   in.up=false;tick(5);in.up=true;tick(5);assert(c.drive.gear==2);
   in.ignition=false;tick(5);assert(c.drive.state==Drive::Off);
-  assert(normalizeTrigger(0,150,3900)==0&&normalizeTrigger(4095,150,3900)==1);
-  assert(normalizeTrigger(2000,150,3900)>.45f&&normalizeTrigger(2000,150,3900)<.55f);
+  // A centred thumbstick must idle, including rest jitter and opposite travel.
+  for(int raw:{0,150,1748,2048,2200,2348})assert(normalizeThrottle(raw,2048,3900,300)==0);
+  assert(normalizeThrottle(3124,2048,3900,300)==.5f);
+  assert(normalizeThrottle(3900,2048,3900,300)==1&&normalizeThrottle(4095,2048,3900,300)==1);
+  // Reversing the endpoint preserves the centre dead zone, rather than inverting idle.
+  for(int raw:{1748,2048,2348,3900,4095})assert(normalizeThrottle(raw,2048,150,300)==0);
+  assert(normalizeThrottle(949,2048,150,300)==.5f);
+  assert(normalizeThrottle(150,2048,150,300)==1&&normalizeThrottle(0,2048,150,300)==1);
+  assert(normalizeThrottle(4095,2048,2048,300)==0);
+  assert(normalizeThrottle(4095,2048,2200,300)==0);
+  assert(normalizeThrottle(4095,2048,3900,-1)==0);
+  // A full-travel trigger/pot can still use calibrated endpoints and a smaller dead zone.
+  assert(normalizeThrottle(150,150,3900,100)==0&&normalizeThrottle(3900,150,3900,100)==1);
+  Controller stick;Inputs stickIn;uint32_t stickNow=0;
+  auto stickTick=[&](int raw,int n){for(int i=0;i<n;i++){stickNow+=10;stickIn.throttle=normalizeThrottle(raw,2048,3900,300);stick.update(stickNow,stickIn);}};
+  stickTick(2200,5);stickIn.ignition=true;stickTick(2200,100);
+  assert(stick.drive.state==Drive::Running&&std::fabs(stick.drive.rpm-750)<2);
+  stickTick(3900,300);assert(stick.drive.rpm>6000);
+  stickTick(2048,300);assert(std::fabs(stick.drive.rpm-750)<2);
+  stickIn.ignition=false;stickTick(3900,5);stickIn.ignition=true;stickTick(3900,100);
+  assert(stick.drive.state==Drive::Off);
 
   // Every shipping patch must produce finite bounded sound, and stop to true silence.
   float buffer[128];double totalEnergy=0;float peak=0;
