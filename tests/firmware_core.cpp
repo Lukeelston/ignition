@@ -24,8 +24,40 @@ int main(int argc,char** argv) {
   d.start();advance(d,100);for(int g=1;g<=6;g++){assert(d.shift(1));advance(d,30);}
   advance(d,6000,1,false,true);assert(!d.shift(-1)&&d.overRev);assert(d.rpm<=7000);
 
-  // Held ignition at boot must not start; switch bounce must not count as shifts.
-  Controller c;Inputs in;in.ignition=true;
+  // Breadboard ignition button: one tap latches on, another tap stops.
+  Controller button;Inputs buttonIn;uint32_t buttonNow=0;
+  auto buttonTick=[&](int n){for(int i=0;i<n;i++){buttonNow+=10;button.update(buttonNow,buttonIn);}};
+  buttonTick(5);buttonIn.ignition=true;buttonTick(5);
+  assert(button.drive.state==Drive::Cranking);
+  buttonIn.ignition=false;buttonTick(100);
+  assert(button.drive.state==Drive::Running); // Release must not switch off.
+  buttonIn.throttle=1;buttonTick(100);assert(button.drive.rpm>6000);
+  buttonIn.ignition=true;buttonTick(100);assert(button.drive.state==Drive::Off);
+  buttonIn.throttle=0;buttonTick(100);assert(button.drive.state==Drive::Off); // No hold-repeat.
+  buttonIn.ignition=false;buttonTick(5);
+  // Contact chatter shorter than the debounce window must not start it.
+  for(int i=0;i<6;i++){buttonIn.ignition=!buttonIn.ignition;buttonTick(1);}
+  buttonTick(5);assert(button.drive.state==Drive::Off);
+  buttonIn.throttle=1;buttonIn.ignition=true;buttonTick(5);assert(button.drive.state==Drive::Off);
+  buttonIn.throttle=0;buttonTick(100);assert(button.drive.state==Drive::Off); // No delayed start.
+  buttonIn.ignition=false;buttonTick(5);buttonIn.ignition=true;buttonTick(100);
+  assert(button.drive.state==Drive::Running);
+  buttonTick(100);assert(button.drive.state==Drive::Running); // Holding cannot toggle repeatedly.
+  buttonIn.ignition=false;buttonTick(5);buttonIn.ignition=true;buttonTick(5);
+  assert(button.drive.state==Drive::Off);
+  buttonIn.ignition=false;buttonTick(5);buttonIn.ignition=true;buttonTick(5);
+  assert(button.drive.state==Drive::Cranking);
+  buttonIn.ignition=false;buttonTick(5);buttonIn.ignition=true;buttonTick(5);
+  assert(button.drive.state==Drive::Off); // A second tap also cancels cranking.
+  Controller heldButton;Inputs heldIn;heldIn.ignition=true;
+  for(uint32_t t=0;t<1000;t+=10)heldButton.update(t,heldIn);
+  assert(heldButton.drive.state==Drive::Off);
+  heldIn.ignition=false;for(uint32_t t=1000;t<1100;t+=10)heldButton.update(t,heldIn);
+  heldIn.ignition=true;for(uint32_t t=1100;t<2200;t+=10)heldButton.update(t,heldIn);
+  assert(heldButton.drive.state==Drive::Running);
+
+  // Maintained-switch compatibility: held ignition at boot must not start.
+  Controller c(false);Inputs in;in.ignition=true;
   uint32_t now=0;
   auto tick=[&](int n){for(int i=0;i<n;i++){now+=10;c.update(now,in);}};
   tick(100);assert(c.drive.state==Drive::Off);
@@ -49,7 +81,7 @@ int main(int argc,char** argv) {
   assert(normalizeThrottle(4095,2048,3900,-1)==0);
   // A full-travel trigger/pot can still use calibrated endpoints and a smaller dead zone.
   assert(normalizeThrottle(150,150,3900,100)==0&&normalizeThrottle(3900,150,3900,100)==1);
-  Controller stick;Inputs stickIn;uint32_t stickNow=0;
+  Controller stick(false);Inputs stickIn;uint32_t stickNow=0;
   auto stickTick=[&](int raw,int n){for(int i=0;i<n;i++){stickNow+=10;stickIn.throttle=normalizeThrottle(raw,2048,3900,300);stick.update(stickNow,stickIn);}};
   stickTick(2200,5);stickIn.ignition=true;stickTick(2200,100);
   assert(stick.drive.state==Drive::Running&&std::fabs(stick.drive.rpm-750)<2);

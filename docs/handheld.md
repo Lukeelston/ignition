@@ -28,7 +28,7 @@ Verification: neutral revs without motion; first accelerates; upshift drops RPM;
                   └───────┘
 ```
 
-This is an earlier interaction sketch, not an enclosure drawing. The bench version substitutes a spring-centred thumbstick for the trigger: push forward for variable throttle, release to idle, click for brake. Two buttons shift; latching toggles select ignition and boost. The onboard RGB and serial monitor provide feedback; a display is a future addition. USB power for bench testing; portable power is a separate enclosure decision.
+This is an earlier interaction sketch, not an enclosure drawing. The bench version substitutes a spring-centred thumbstick for the trigger: push forward for variable throttle, release to idle, click for brake. Luke's breadboard ignition is a momentary button: tap to start, tap again to stop. Two more buttons shift; a toggle can select boost. The onboard RGB and serial monitor provide feedback; a display is a future addition. USB power for bench testing; portable power is a separate enclosure decision.
 
 Luke supplied a photo on 2026-11-06. The middle board is marked ESP32-S3-WROOM-1, Lonely Binary Gold Edition, and is the selected target. He authorized borrowing Iris's MAX98357A and donor speaker. See [the firmware wiring guide](../firmware/README.md) for the verified source files, amp mapping and controls. The toy S3 (USB serial 58:e6:c5:68:65:c8) has now been backed up, flashed, readback-verified and observed running over native USB. Iris and the printer display were not flashed.
 
@@ -39,7 +39,7 @@ Luke supplied a photo on 2026-11-06. The middle board is marked ESP32-S3-WROOM-1
 | Spring-centred thumbstick | VRy to GPIO4 ADC; centre/full calibration + dead zone, one-sided travel | `throttle`, 0–1 |
 | Gear − / + | Two debounced momentary switches | One `shift(-1/+1)` per press, no autorepeat |
 | Brake | Thumbstick SW click or debounced momentary switch | `brake`, held boolean |
-| Ignition | Latching switch | Rising edge starts; falling edge stops |
+| Ignition | Momentary button | Debounced press toggles start/stop; release keeps engine running |
 | Boost | Latching switch | `boost`, boolean |
 | Character | Optional momentary button | Cycle all eight patches |
 | Volume | Constant in `board_config.h` for this build | Output gain |
@@ -56,7 +56,7 @@ flowchart LR
 
 The arithmetic and state machine are now ported to C++, with preallocated buffers and a separate audio task. The browser remains the patch editor. Audio target: 32 kHz synthesis, duplicated mono in 32-bit stereo I²S slots (matching Iris's proven slot format), 128-sample blocks. A block lasts 4 ms; firmware reports generation time and misses against that deadline. The 27 ms reflection delay uses 864 floats = 3,456 bytes. A mono float block plus a stereo int32 block uses 1,536 bytes, excluding driver buffers and stacks. Test the reduced sample rate for sound quality on hardware; browser audio remains 48 kHz.
 
-The synth uses procedural pulses, noise, filters and oscillators rather than sample recordings, plus interpolated sine/saturation tables for the native audio loop. Radios are not initialized. Ignition off fades to silence; startup requires released throttle and a fresh ignition edge after observing off. Native tests and an ESP32-S3 compilation pass. Real-time board performance has not yet been measured.
+The synth uses procedural pulses, noise, filters and oscillators rather than sample recordings, plus interpolated sine/saturation tables for the native audio loop. Radios are not initialized. Ignition off fades to silence; startup requires released throttle and a fresh button press after observing the button released. Native tests and an ESP32-S3 compilation pass. Active-synthesis performance and physical sound still require the bench test.
 
 Espressif's [Arduino I2S API](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/i2s.html) supports configurable clock/data pins and PCM output. Its [ADC documentation](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/adc.html) describes analog reads and notes that channels, pins and voltage ranges differ by chip. The selected output stage is Iris's [MAX98357A I2S amplifier](https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/overview) and donor speaker, temporarily borrowed for this build and powered from USB 5 V. Sources checked 2026-11-06.
 

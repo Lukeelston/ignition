@@ -38,7 +38,7 @@ Numbers below are **GPIO labels**, not physical header positions. Each switch co
 | Gear + | **5** | Normally-open momentary button; one upshift per press |
 | Gear − | **6** | Normally-open momentary button; one downshift per press |
 | Brake | **7** | Thumbstick SW click, or normally-open button; hold to brake |
-| Ignition | **8** | Latching toggle; closed = on |
+| Ignition | **8** | Normally-open momentary button; tap to start, tap again to stop |
 | Boost | **9** | Latching toggle; closed = boost |
 | Character | **10** | Optional momentary button; cycles all eight sound presets |
 | Status RGB | **48** | Already on the board |
@@ -60,9 +60,11 @@ Luke has a thumbstick, buttons, switches and rotary encoders. The thumbstick rep
 
 The conventional joystick is two potentiometers plus a switch. Supply it from 3.3 V so its analog outputs stay within the S3 supply rails. The [Joy-IT KY-023 specification](https://www.joy-it.net/en/products/COM-KY023JM) supports 3.3 V operation. The amp still uses 5 V; its supply must not go to the thumbstick or a GPIO. The ADC input has a pull-down.
 
-3. Wire a plain, unlit ignition toggle between **GPIO8** and **GND**. On a simple three-terminal SPDT toggle, use the common terminal and one switched terminal (often centre and one outer; check continuity if unmarked). Leave the other terminal unused. Do not guess the terminals on an illuminated switch.
-4. Leave ignition off. Connect either USB-C socket to the PC; the bench session uses the socket marked **USB**, which identifies itself with the S3 MAC above. Firmware now mirrors diagnostics to native **USB** and **UART**. Identify the spare S3 and back up existing flash before its first upload; connecting wires alone does not install it.
-5. After upload, open its serial port at **115200 baud**. With the stick released, `throttle=` must settle to **0.00**. Switch ignition off, then on: expect amber cranking followed by green and approximately 750 RPM with the default V8. Push the stick to rev in neutral; release to return to idle. Click and hold to brake. Switch off to silence.
+3. Wire a normally-open ignition **button** between **GPIO8** and **GND**. A breadboard is sufficient. On a four-leg tactile button, use terminals that connect only when pressed; two legs on the same internally connected pair would permanently hold the input. Keep the GPIO and ground leads on separate breadboard strips. No external pull-up resistor is needed.
+4. Leave the button released. Connect either USB-C socket to the PC; the bench session uses the socket marked **USB**, which identifies itself with the S3 MAC above. Firmware mirrors diagnostics to native **USB** and **UART**. Identify the spare S3 and back up existing flash before its first upload; connecting wires alone does not install it.
+5. After upload, open its serial port at **115200 baud**. With the stick released, `throttle=` must settle to **0.00**. Tap and release the ignition button: expect amber cranking followed by green and approximately 750 RPM with the default V8. The engine stays on after release. Push the stick to rev in neutral; release to return to idle. Click and hold the stick to brake. Tap ignition again to stop, including while revving or cranking.
+
+`ignitionIsButton=true` in `board_config.h` selects this breadboard profile. A button held during boot cannot start the engine until released and pressed again. A press with throttle held is rejected; centring the stick while still holding the button does not start it later. Holding or ordinary contact bounce does not repeat the toggle. For a future maintained toggle, set `ignitionIsButton=false`, rebuild and upload; that mode requires off/on and stays on only while the switch is closed. Telemetry includes `button_mode=1` for the button profile, raw `key=0/1`, and `state=0/1/2` for off/cranking/running.
 
 Default calibration in `board_config.h`: `throttleRest=2048`, `throttleFull=3900`, `throttleDeadZone=300`, all **raw ADC counts**. These are provisional, not a measurement of Luke's stick. Record `adc=` at centre and at the desired full-forward position; put those readings in rest/full. A full reading below rest automatically reverses travel. The centre dead zone and the entire opposite direction produce zero throttle. There is no boot auto-calibration that could mistake a held stick for centre. If motion is sideways, use VRx instead of VRy on GPIO4; if backwards, change the full endpoint. Rebuild and upload after calibration changes. The [ESP32 ADC reference](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/adc.html) explains raw 12-bit readings and attenuation; raw counts are not calibrated voltages.
 
@@ -72,7 +74,7 @@ A full-travel trigger/pot can still use this firmware by setting rest/full to it
 
 Add normally-open buttons from **GPIO5 → GND** for gear + and **GPIO6 → GND** for gear −. On a four-leg tactile button, use terminals that are disconnected until pressed; the two legs on a connected pair would permanently hold the input. Add a boost toggle **GPIO9 → GND** and an optional character button **GPIO10 → GND**. All grounds may share a ground rail.
 
-Boot is silent. Centre the stick, switch ignition **off**, then **on**. A held-on switch at boot cannot start the engine. An on edge with throttle held is rejected until another off/on cycle. Start in neutral, tap gear +, then push the stick. The automatic clutch handles launch. Gear − back from first enters neutral; no reverse gear. A released stick idles the engine; a moving toy drivetrain still coasts until braked.
+Boot is silent. Centre the stick and **tap ignition**. Start in neutral, tap gear +, then push the stick. The automatic clutch handles launch. Gear − back from first enters neutral; no reverse gear. A released stick idles the engine in neutral; a moving toy drivetrain still coasts until braked.
 
 RGB: dim blue = off, amber = cranking, green = running, purple = boost, red = rejected downshift/rev limit or audio fault (serial distinguishes them). Gear/RPM and the selected preset print over UART. This first firmware uses the existing LED, not a fabricated screen driver. A dedicated gear display is a later hardware addition.
 
@@ -112,7 +114,7 @@ python tools/check_firmware.py
 node --test tests/*.test.mjs
 ```
 
-Checks cover centred-stick idle/dead zone/opposite travel, either endpoint direction, invalid calibration, stick-driven ignition/rev/return to idle, neutral/drive/shift/brake/boost, rejected over-rev, ignition at boot, held throttle on start, switch bounce, one shift per held button, finite bounded sound for eight patches, seed determinism, firing frequency and fading to exact silence. A 20-second drive trace is compared at 20 checkpoints against the browser model. The generated WAV is **host synthesis**, not a recording from the ESP.
+Checks cover centred-stick idle/dead zone/opposite travel, either endpoint direction, invalid calibration, stick-driven ignition/rev/return to idle, neutral/drive/shift/brake/boost, rejected over-rev, button tap/release latching, stop at full throttle, cancel during cranking, boot-held button, rejected start with held throttle, no delayed start or hold-repeat, contact bounce, maintained-switch compatibility, one shift per held gear button, finite bounded sound for eight patches, seed determinism, firing frequency and fading to exact silence. A 20-second drive trace is compared at 20 checkpoints against the browser model. The generated WAV is **host synthesis**, not a recording from the ESP.
 
 Audio runs on a separate task with 128 frames per block, four DMA buffers, 32 kHz output, duplicated 32-bit stereo slots and continuous silent clocks while off. No Wi-Fi or Bluetooth is initialized. Stale input updates ramp to silence after 250 ms; an I²S write fault latches mute until reboot. Serial reports maximum render time, blocks exceeding the 4,000 µs synthesis deadline, and write errors. Those counters do not independently prove that no DMA underrun or acoustic glitch occurred.
 

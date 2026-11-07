@@ -81,16 +81,27 @@ inline float normalizeThrottle(int raw,int rest,int full,int deadZone){
 }
 class Controller {
   Debounced up,down,brake,key,boost,character;
+  const bool momentary;
   bool initialized=false,armed=false;uint32_t last=0;
 public:
+  explicit Controller(bool ignitionIsButton=true):momentary(ignitionIsButton){}
   Drive drive;bool nextCharacter=false,boostOn=false,braking=false;
   void update(uint32_t now,const Inputs& in){
     float dt=initialized?std::min(.05f,float(uint32_t(now-last))*.001f):.01f;
     initialized=true;last=now;
     up.update(in.up,now);down.update(in.down,now);brake.update(in.brake,now);key.update(in.ignition,now);boost.update(in.boost,now);character.update(in.character,now);
     const float throttle=std::isfinite(in.throttle)?bounded(in.throttle,0,1):0;
-    if(!key.value){drive.stop();armed=throttle<.04f;}
-    else if(key.rise){if(armed&&throttle<.04f)drive.start();armed=false;}
+    if(momentary){
+      if(!key.value)armed=true;
+      else if(key.rise&&armed){
+        armed=false;
+        if(drive.state!=Drive::Off)drive.stop();
+        else if(throttle<.04f)drive.start();
+      }
+    }else{
+      if(!key.value){drive.stop();armed=throttle<.04f;}
+      else if(key.rise){if(armed&&throttle<.04f)drive.start();armed=false;}
+    }
     if(up.rise&&!down.value)drive.shift(1);
     if(down.rise&&!up.value)drive.shift(-1);
     nextCharacter=character.rise;boostOn=boost.value;braking=brake.value;

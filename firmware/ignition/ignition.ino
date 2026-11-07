@@ -15,7 +15,7 @@ struct AudioCommand {uint32_t time;size_t preset;float rpm,load,volume;};
 struct AudioStats {uint32_t blocks=0,renderMaxUs=0,renderLate=0,writeErrors=0;};
 static QueueHandle_t commands=nullptr,statistics=nullptr;
 static i2s_chan_handle_t tx=nullptr;
-static Controller controller;
+static Controller controller(board::ignitionIsButton);
 static Synth synth;
 static size_t currentPreset=0;
 static bool ready=false;
@@ -89,9 +89,9 @@ void setup(){
   controller.drive.configure(kPatches[0]);
   ready=beginAudio();
   rgbLedWrite(board::rgb,ready?0:20,0,ready?5:0);
-  report("Ignition handheld 0.2 | ESP32-S3 | detected_flash=%u | PSRAM unused | audio=%s\n",ESP.getFlashChipSize(),ready?"ready":"FAILED");
+  report("Ignition handheld 0.3 | ESP32-S3 | detected_flash=%u | PSRAM unused | audio=%s\n",ESP.getFlashChipSize(),ready?"ready":"FAILED");
   report("Thumbstick: rest=%d full=%d dead_zone=%d. USB/UART: 115200.\n",board::throttleRest,board::throttleFull,board::throttleDeadZone);
-  report("Centre stick. Switch ignition OFF, then ON. No automatic boot sound.\n");
+  report(board::ignitionIsButton?"Centre stick. Release ignition button, then tap to start/stop.\n":"Centre stick. Switch ignition OFF, then ON. No automatic boot sound.\n");
 }
 
 void loop(){
@@ -122,7 +122,7 @@ void loop(){
   }
   if(now-lastReport>=1000){
     lastReport=now;
-    report("preset=%s gear=%d rpm=%.0f speed=%.1f throttle=%.2f adc=%d blocks=%u render_max_us=%u render_late=%u write_errors=%u heap=%u\n",kPresetNames[currentPreset],controller.drive.gear,controller.drive.rpm,controller.drive.speed,inputs.throttle,throttleRaw,stats.blocks,stats.renderMaxUs,stats.renderLate,stats.writeErrors,ESP.getFreeHeap());
+    report("preset=%s gear=%d rpm=%.0f speed=%.1f throttle=%.2f adc=%d key=%d state=%d button_mode=%d blocks=%u render_max_us=%u render_late=%u write_errors=%u heap=%u\n",kPresetNames[currentPreset],controller.drive.gear,controller.drive.rpm,controller.drive.speed,inputs.throttle,throttleRaw,inputs.ignition,int(controller.drive.state),board::ignitionIsButton,stats.blocks,stats.renderMaxUs,stats.renderLate,stats.writeErrors,ESP.getFreeHeap());
   }
   vTaskDelayUntil(&wake,pdMS_TO_TICKS(10));
 }

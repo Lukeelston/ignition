@@ -3,6 +3,7 @@
 // GPIO numbers, not connector position numbers. Not the classic ESP32 pinout.
 namespace board {
 constexpr int throttle=4,gearUp=5,gearDown=6,brake=7,ignitionSwitch=8,boost=9,character=10;
+constexpr bool ignitionIsButton=true; // GPIO8 -> momentary button -> GND; tap to start/stop
 // Preserve Iris's MAX98357A harness and duplicate mono into both 32-bit slots.
 constexpr int bclk=15,wordSelect=16,dataOut=17,rgb=48;
 // Spring-centred thumbstick: VRy -> GPIO4, SW -> brake GPIO7, supply -> 3V3.
