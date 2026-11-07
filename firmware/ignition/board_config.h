@@ -6,10 +6,11 @@ constexpr int throttle=4,gearUp=5,gearDown=6,brake=7,ignitionSwitch=8,boost=9,ch
 constexpr bool ignitionIsButton=true; // GPIO8 -> momentary button -> GND; tap to start/stop
 // Preserve Iris's MAX98357A harness and duplicate mono into both 32-bit slots.
 constexpr int bclk=15,wordSelect=16,dataOut=17,rgb=48;
-// Spring-centred thumbstick: VRy -> GPIO4, SW -> brake GPIO7, supply -> 3V3.
+// Thumbstick-only bench: VRy -> GPIO4, SW -> ignition GPIO8, supply -> 3V3.
+// Leave optional brake GPIO7 and other controls unconnected until needed.
 // Provisional raw ADC calibration. Record rest and desired full-forward readings.
 // A full reading below rest reverses direction without changing centre = idle.
 constexpr int throttleRest=2048,throttleFull=3900,throttleDeadZone=300;
-constexpr float volume=.22f; // conservative initial bench level; tune after listening
+constexpr float volume=.08f; // reduced-level trial for Luke's unmarked miniature speaker
 constexpr int blockFrames=128;
 }

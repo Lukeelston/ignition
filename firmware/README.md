@@ -14,6 +14,8 @@ Luke authorized borrowing the amp and speaker. Read the chat **Design Iris’s e
 
 These identify the purple **HW-792 / MAX98357A** amplifier and a **39 × 39 × 22 mm** donor speaker. Luke measured approximately 4 Ω; wattage is unknown. The recorded successful Iris setup uses GPIO15/16/17, 32-bit stereo I²S with mono in both slots, and GAIN/SD left open. This firmware keeps those connections and slot format; its sample rate is 32 kHz, versus Iris's 16 kHz speech. Its conservative starting volume is separately adjustable in `board_config.h`; Iris's speech gain is not copied onto continuous engine noise.
 
+Latest bench update (2026-11-06): after bypassing the mismatched terminal adapter and using the thumbstick click on GPIO8, Luke confirmed audible engine sound. He substituted a tiny unmarked rectangular speaker and reported buzz/rattle. That replacement does **not** inherit the original donor's measured impedance. The firmware gain was reduced from 0.22 to **0.08** for a comparison test; the reduced value is flashed and confirmed in live telemetry. Luke then found a TV speaker marked **5 W, 4 Ω**. This is a compatible load for the MAX98357A; its 5 W rating is power handling, not required drive power. On 5 V the amp is specified around 2.5 W into 4 Ω at 1% THD. Power down before swapping, and keep the speaker across SPK+/SPK−. The TV speaker's listening result is still pending.
+
 Use a spare S3 as the toy controller. Unplug power before moving the amp's five input/power wires, label them, and disconnect the amp from Iris's ESP before connecting it to the toy. Keep the speaker attached to the amp. The amp must not be driven by both ESPs at once. Iris's screen, microphone, board firmware and software stay with Iris. This project has not changed any Iris files or devices.
 
 | MAX98357A connection | Ignition S3 connection |
@@ -32,13 +34,35 @@ Neither speaker terminal goes to GND; this is a bridge output. The amp accepts d
 
 Numbers below are **GPIO labels**, not physical header positions. Each switch connects its GPIO to **GND** when active; firmware enables pull-ups and debounces for 20 ms. Open means inactive.
 
+**Current bench wiring:** Luke found that the terminal adapter is labelled for a different board. Use the S3's own pins and bypass that adapter. The current build uses only the thumbstick and its click for ignition; the separate button/switch has been removed from the wiring plan. The already-installed button-mode firmware supports this without a reflash.
+
+```text
+ESP32-S3                    THUMBSTICK
+3V3 ----------------------- VCC / +5V
+GND ----------------------- GND
+GPIO4 --------------------- VRy
+GPIO8 --------------------- SW (click = start/stop)
+                            VRx: not connected
+
+ESP32-S3                    MAX98357A AMP
+5V ------------------------ VIN
+GND ----------------------- GND
+GPIO15 -------------------- BCLK
+GPIO16 -------------------- LRC / LRCLK
+GPIO17 -------------------- DIN
+                            SPK+ ---- speaker ---- SPK-
+                            GAIN / SD: leave open
+```
+
+Wire with USB unplugged. Amp and thumbstick share the S3 ground. The thumbstick gets **3V3**, even if its supply pin says +5V. The speaker connects only across the amp's two speaker outputs. GPIO5/6/7/9/10 are left empty for this first test. Centre and release the stick, click once to start, move the stick to rev, then click again to stop.
+
 | Control | S3 GPIO | Part / behavior |
 | --- | --- | --- |
 | Throttle | **4** | Thumbstick VRy; centre = idle, one direction = throttle |
 | Gear + | **5** | Normally-open momentary button; one upshift per press |
 | Gear − | **6** | Normally-open momentary button; one downshift per press |
-| Brake | **7** | Thumbstick SW click, or normally-open button; hold to brake |
-| Ignition | **8** | Normally-open momentary button; tap to start, tap again to stop |
+| Brake | **7** | Optional separate normally-open button; leave empty for this build |
+| Ignition | **8** | Thumbstick SW click; tap to start, tap again to stop |
 | Boost | **9** | Latching toggle; closed = boost |
 | Character | **10** | Optional momentary button; cycles all eight sound presets |
 | Status RGB | **48** | Already on the board |
@@ -55,14 +79,14 @@ Luke has a thumbstick, buttons, switches and rotary encoders. The thumbstick rep
 | GND | GND (same ground as the amp) |
 | VCC / +5V | **3V3**, even if the module label says +5V |
 | VRy | **GPIO4** |
-| SW | **GPIO7**, click and hold to brake |
+| SW | **GPIO8**, click once to start, again to stop |
 | VRx | Leave disconnected |
 
 The conventional joystick is two potentiometers plus a switch. Supply it from 3.3 V so its analog outputs stay within the S3 supply rails. The [Joy-IT KY-023 specification](https://www.joy-it.net/en/products/COM-KY023JM) supports 3.3 V operation. The amp still uses 5 V; its supply must not go to the thumbstick or a GPIO. The ADC input has a pull-down.
 
-3. Wire a normally-open ignition **button** between **GPIO8** and **GND**. A breadboard is sufficient. On a four-leg tactile button, use terminals that connect only when pressed; two legs on the same internally connected pair would permanently hold the input. Keep the GPIO and ground leads on separate breadboard strips. No external pull-up resistor is needed.
+3. Remove the separate ignition button and move the thumbstick's **SW wire from GPIO7 to GPIO8**. The thumbstick supplies the momentary button internally. Leave GPIO7 unconnected. No external pull-up resistor is needed.
 4. Leave the button released. Connect either USB-C socket to the PC; the bench session uses the socket marked **USB**, which identifies itself with the S3 MAC above. Firmware mirrors diagnostics to native **USB** and **UART**. Identify the spare S3 and back up existing flash before its first upload; connecting wires alone does not install it.
-5. After upload, open its serial port at **115200 baud**. With the stick released, `throttle=` must settle to **0.00**. Tap and release the ignition button: expect amber cranking followed by green and approximately 750 RPM with the default V8. The engine stays on after release. Push the stick to rev in neutral; release to return to idle. Click and hold the stick to brake. Tap ignition again to stop, including while revving or cranking.
+5. Open its serial port at **115200 baud**. With the stick released, `throttle=` must settle to **0.00**. Click and release the thumbstick: expect amber cranking followed by green and approximately 750 RPM with the default V8. The engine stays on after release. Push the stick to rev in neutral; release to return to idle. Click again to stop, including while revving or cranking. The already-installed button-mode firmware needs no upload for this wiring change.
 
 `ignitionIsButton=true` in `board_config.h` selects this breadboard profile. A button held during boot cannot start the engine until released and pressed again. A press with throttle held is rejected; centring the stick while still holding the button does not start it later. Holding or ordinary contact bounce does not repeat the toggle. For a future maintained toggle, set `ignitionIsButton=false`, rebuild and upload; that mode requires off/on and stays on only while the switch is closed. Telemetry includes `button_mode=1` for the button profile, raw `key=0/1`, and `state=0/1/2` for off/cranking/running.
 
@@ -72,7 +96,7 @@ A full-travel trigger/pot can still use this firmware by setting rest/full to it
 
 ### Add gears and other controls after the first sound test
 
-Add normally-open buttons from **GPIO5 → GND** for gear + and **GPIO6 → GND** for gear −. On a four-leg tactile button, use terminals that are disconnected until pressed; the two legs on a connected pair would permanently hold the input. Add a boost toggle **GPIO9 → GND** and an optional character button **GPIO10 → GND**. All grounds may share a ground rail.
+Add normally-open buttons from **GPIO5 → GND** for gear + and **GPIO6 → GND** for gear −. An optional separate brake button goes **GPIO7 → GND**. On a four-leg tactile button, use terminals that are disconnected until pressed; the two legs on a connected pair would permanently hold the input. Add a boost toggle **GPIO9 → GND** and an optional character button **GPIO10 → GND**. All grounds may share a ground rail.
 
 Boot is silent. Centre the stick and **tap ignition**. Start in neutral, tap gear +, then push the stick. The automatic clutch handles launch. Gear − back from first enters neutral; no reverse gear. A released stick idles the engine in neutral; a moving toy drivetrain still coasts until braked.
 

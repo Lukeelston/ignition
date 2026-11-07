@@ -122,7 +122,7 @@ void loop(){
   }
   if(now-lastReport>=1000){
     lastReport=now;
-    report("preset=%s gear=%d rpm=%.0f speed=%.1f throttle=%.2f adc=%d key=%d state=%d button_mode=%d blocks=%u render_max_us=%u render_late=%u write_errors=%u heap=%u\n",kPresetNames[currentPreset],controller.drive.gear,controller.drive.rpm,controller.drive.speed,inputs.throttle,throttleRaw,inputs.ignition,int(controller.drive.state),board::ignitionIsButton,stats.blocks,stats.renderMaxUs,stats.renderLate,stats.writeErrors,ESP.getFreeHeap());
+    report("preset=%s gear=%d rpm=%.0f speed=%.1f throttle=%.2f adc=%d key=%d state=%d button_mode=%d volume=%.2f blocks=%u render_max_us=%u render_late=%u write_errors=%u heap=%u\n",kPresetNames[currentPreset],controller.drive.gear,controller.drive.rpm,controller.drive.speed,inputs.throttle,throttleRaw,inputs.ignition,int(controller.drive.state),board::ignitionIsButton,board::volume,stats.blocks,stats.renderMaxUs,stats.renderLate,stats.writeErrors,ESP.getFreeHeap());
   }
   vTaskDelayUntil(&wake,pdMS_TO_TICKS(10));
 }
