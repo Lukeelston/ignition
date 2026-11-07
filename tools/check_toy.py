@@ -42,13 +42,17 @@ def main():
                 page.get_by_role('button', name='Gear up', exact=True).click()
                 page.locator('#trigger').focus()
                 page.keyboard.down('Space')
-                page.wait_for_function("Number(document.querySelector('#speed-readout').textContent) >= 30")
+                # The tachometer follows audible/smoothed RPM. Let first gear
+                # actually rev before shifting; road speed alone outruns it.
+                page.wait_for_function("Number(document.querySelector('#speed-readout').textContent) >= 40 && Number(document.querySelector('#rpm-readout').textContent.replace(/,/g,'')) > 6000")
                 before = int(page.locator('#rpm-readout').text_content().replace(',', ''))
                 page.keyboard.press('ArrowUp')
                 page.wait_for_function("document.querySelector('#gear-readout').textContent === '2'")
                 # Keep the trigger held through the shift; changing gear must not release it.
                 assert page.locator('#throttle-value').inner_text() == '100%'
-                page.wait_for_timeout(650)
+                # Observe the shift dip itself; the uprated motor can recover
+                # much of it within the old fixed 650 ms sampling delay.
+                page.wait_for_function("limit => Number(document.querySelector('#rpm-readout').textContent.replace(/,/g,'')) < limit", arg=before*.9, timeout=1200)
                 after = int(page.locator('#rpm-readout').text_content().replace(',', ''))
                 assert after < before * .9, (before, after)
                 report['upshift_rpm'] = [before, after]

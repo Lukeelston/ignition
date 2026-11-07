@@ -14,7 +14,7 @@ Luke authorized borrowing the amp and speaker. Read the chat **Design Iris’s e
 
 These identify the purple **HW-792 / MAX98357A** amplifier and a **39 × 39 × 22 mm** donor speaker. Luke measured approximately 4 Ω; wattage is unknown. The recorded successful Iris setup uses GPIO15/16/17, 32-bit stereo I²S with mono in both slots, and GAIN/SD left open. This firmware keeps those connections and slot format; the current bench rate is 16 kHz, following comparison with its original 32 kHz output. Engine volume is separately adjustable in `board_config.h`; Iris's speech gain is not copied onto continuous engine noise.
 
-Latest bench update (2026-11-07): the standalone Iris driver produced user-confirmed clear, loud tones. Larger buffers increased perceived engine volume but left static. Luke heard the same static in a PC render, and confirmed that removing the synth's random intake/firing texture removed it. He chose an acceleration-driven envelope: combustion texture swells as RPM rises and fades at steady revs. The current profile also adds VRx flick gearing and a starter/catch/idle sequence, retaining the tested **0.8 gain across reboot**. Final on-board sound and new controls require the listening/physical test recorded in `docs/verification.md`. Power down before speaker swaps, and keep the speaker across SPK+/SPK−.
+Latest bench update (2026-11-07): Luke confirmed the startup, gearing and acceleration-driven texture are working pretty well. The next refinement swaps the stick functions without rewiring: VRx now handles throttle/brake, VRy handles gears, and holding click cycles engine types. Pull is increased 35%; this is toy-model tuning, not measured horsepower. Combustion crank flutter fades out above idle to remove the periodic pitch wobble. The retained boot gain is **0.8**, with a new **2× output makeup gain (+6 dB)** and a soft peak ceiling. Final on-board sound and new controls require the listening/physical test recorded in `docs/verification.md`. Power down before speaker swaps, and keep the speaker across SPK+/SPK−.
 
 Use a spare S3 as the toy controller. Unplug power before moving the amp's five input/power wires, label them, and disconnect the amp from Iris's ESP before connecting it to the toy. Keep the speaker attached to the amp. The amp must not be driven by both ESPs at once. Iris's screen, microphone, board firmware and software stay with Iris. This project has not changed any Iris files or devices.
 
@@ -34,15 +34,15 @@ Neither speaker terminal goes to GND; this is a bridge output. The amp accepts d
 
 Numbers below are **GPIO labels**, not physical header positions. Each switch connects its GPIO to **GND** when active; firmware enables pull-ups and debounces for 20 ms. Open means inactive.
 
-**Current bench wiring:** Luke found that the terminal adapter is labelled for a different board. Use the S3's own pins and bypass that adapter. The build uses only the thumbstick: VRy throttle, VRx flick gearing and click ignition. Luke confirmed adding VRx to GPIO1. GPIO1 is ADC1_CH0 on this S3 ([Espressif datasheet](https://documentation.espressif.com/esp32_s3_datasheet_en.pdf)); it does not replace the optional GPIO5/6 gear buttons.
+**Current bench wiring:** Luke found that the terminal adapter is labelled for a different board. Use the S3's own pins and bypass that adapter. The build uses only the thumbstick: VRx throttle/brake, VRy flick gears, short click ignition and held click character selection. **No wires move for this update.** GPIO1 is ADC1_CH0 on this S3 ([Espressif datasheet](https://documentation.espressif.com/esp32_s3_datasheet_en.pdf)); optional GPIO5/6 gear buttons remain supported.
 
 ```text
 ESP32-S3                    THUMBSTICK
 3V3 ----------------------- VCC / +5V
 GND ----------------------- GND
-GPIO4 --------------------- VRy
-GPIO1 --------------------- VRx (left/right = gear down/up)
-GPIO8 --------------------- SW (click = start/stop)
+GPIO4 --------------------- VRy (old throttle direction = gear up; opposite = down)
+GPIO1 --------------------- VRx (right = throttle; left = brake)
+GPIO8 --------------------- SW (short click = start/stop; hold = cycle engines)
 
 ESP32-S3                    MAX98357A AMP
 5V ------------------------ VIN
@@ -58,12 +58,12 @@ Wire with USB unplugged. Amp and thumbstick share the S3 ground. The thumbstick 
 
 | Control | S3 GPIO | Part / behavior |
 | --- | --- | --- |
-| Throttle | **4** | Thumbstick VRy; centre = idle, one direction = throttle |
-| Flick gears | **1** | Thumbstick VRx; right/high = up, left/low = down; re-centre between shifts |
+| Throttle / brake | **1** | Thumbstick VRx; right/high = throttle, left/low = proportional brake; centre = coast/idle |
+| Flick gears | **4** | Thumbstick VRy; old throttle/high direction = up, opposite/low = down; re-centre between shifts |
 | Gear + | **5** | Normally-open momentary button; one upshift per press |
 | Gear − | **6** | Normally-open momentary button; one downshift per press |
 | Brake | **7** | Optional separate normally-open button; leave empty for this build |
-| Ignition | **8** | Thumbstick SW click; tap to start, tap again to stop |
+| Ignition / engine type | **8** | Thumbstick SW; short click/release toggles ignition; hold cycles engines |
 | Boost | **9** | Latching toggle; closed = boost |
 | Character | **10** | Optional momentary button; cycles all eight sound presets |
 | Status RGB | **48** | Already on the board |
@@ -79,23 +79,23 @@ Luke has a thumbstick, buttons, switches and rotary encoders. The thumbstick rep
 | --- | --- |
 | GND | GND (same ground as the amp) |
 | VCC / +5V | **3V3**, even if the module label says +5V |
-| VRy | **GPIO4** |
-| SW | **GPIO8**, click once to start, again to stop |
-| VRx | **GPIO1**, flick left/right for gear down/up |
+| VRy | **GPIO4**, flick along the old throttle axis for gears |
+| SW | **GPIO8**, short click/release starts/stops; hold cycles engines |
+| VRx | **GPIO1**, right accelerates and left brakes |
 
 The conventional joystick is two potentiometers plus a switch. Supply it from 3.3 V so its analog outputs stay within the S3 supply rails. The [Joy-IT KY-023 specification](https://www.joy-it.net/en/products/COM-KY023JM) supports 3.3 V operation. The amp still uses 5 V; its supply must not go to the thumbstick or a GPIO. The ADC input has a pull-down.
 
 3. Remove the separate ignition button and move the thumbstick's **SW wire from GPIO7 to GPIO8**. The thumbstick supplies the momentary button internally. Leave GPIO7 unconnected. No external pull-up resistor is needed.
 4. Leave the button released. Connect either USB-C socket to the PC; the bench session uses the socket marked **USB**, which identifies itself with the S3 MAC above. Firmware mirrors diagnostics to native **USB** and **UART**. Identify the spare S3 and back up existing flash before its first upload; connecting wires alone does not install it.
-5. Open its serial port at **115200 baud**. With the stick released, `throttle=` must settle to **0.00**. Click and release: the starter spins for about 0.75 seconds, the engine catches with a short RPM flare, and settles to green/running by 1.35 seconds (750 RPM with the default V8). The engine stays on after release. Push to rev in neutral, or flick right and re-centre to select first gear before accelerating. Click again to stop, including during the start sequence.
+5. Open its serial port at **115200 baud**. With the stick released, `throttle=` and `brake=` must settle to **0.00**. Short click/release: the starter spins for about 0.75 seconds, catches with a short RPM flare, and settles to green/running by 1.35 seconds (750 RPM with the default V8). Move right to rev, or flick in the old throttle direction and re-centre to select first before accelerating. Move left to brake; greater travel means more braking. Another short click/release stops, including during startup.
 
-The gear axis must stay within 350 ADC counts of centre (provisional 2048) for 60 ms before arming. A deflection of at least 1000 counts held for 20 ms shifts once; holding it cannot repeat, and reversing directly cannot shift again without re-centring. A held/disconnected stick at boot cannot shift. `gearAxisInverted` reverses direction if physical right reads low. Telemetry reports `x_adc`, `gear`, cumulative successful `shifts`, `speed`, `load` and `starter` level. Startup and diagnostic tones inhibit flick shifts.
+The gear axis must stay within 350 ADC counts of centre (measured near 1915) for 60 ms before arming. A deflection of at least 1000 counts held for 20 ms shifts once; holding it cannot repeat, and reversing directly cannot shift again without re-centring. A held/disconnected stick at boot cannot shift. `gearAxisInverted` can reverse the gear direction. Telemetry reports physical `x_adc`/`y_adc`, `throttle`, proportional `brake`, `gear`, cumulative successful `shifts`, `speed`, `load` and `starter`. Startup, a held click and diagnostic tones inhibit flick shifts.
 
 Neutral free-revs without road speed. In gears 1–6, ratios couple RPM to road speed; each upshift briefly cuts torque, drops RPM and increases engine load at the same throttle. Road speed carries through the shift, with less acceleration in taller gears. Release the throttle to coast. Downshifts that would exceed the rev limit are rejected; first shifts down to neutral. This is a toy vehicle model, not calibrated vehicle physics.
 
-`ignitionIsButton=true` in `board_config.h` selects this breadboard profile. A button held during boot cannot start the engine until released and pressed again. A press with throttle held is rejected; centring the stick while still holding the button does not start it later. Holding or ordinary contact bounce does not repeat the toggle. For a future maintained toggle, set `ignitionIsButton=false`, rebuild and upload; that mode requires off/on and stays on only while the switch is closed. Telemetry includes `button_mode=1` for the button profile, raw `key=0/1`, and `state=0/1/2` for off/cranking/running.
+`ignitionIsButton=true` selects this breadboard profile. A short click toggles ignition **on release**, so holding it does not first stop/start the engine. Hold for **650 ms** to select the next engine, then keep holding to advance every **900 ms**; release to keep the chosen type. This works with ignition off or running; release after a hold never toggles power. A boot-held button is ignored until released. A start tap with throttle held at any time is rejected; centring before release cannot turn it into a delayed start. Contact bounce does not toggle. The optional GPIO10 character button still advances once per press. For a maintained toggle, set `ignitionIsButton=false`; that mode keeps its off/on interlock and uses GPIO10 for character selection. Telemetry includes `button_mode`, raw `key`, and `state=0/1/2` for off/cranking/running.
 
-Default calibration in `board_config.h`: `throttleRest=2048`, `throttleFull=3900`, `throttleDeadZone=300`, all **raw ADC counts**. These are provisional, not a measurement of Luke's stick. Record `adc=` at centre and at the desired full-forward position; put those readings in rest/full. A full reading below rest automatically reverses travel. The centre dead zone and the entire opposite direction produce zero throttle. There is no boot auto-calibration that could mistake a held stick for centre. If motion is sideways, use VRx instead of VRy on GPIO4; if backwards, change the full endpoint. Rebuild and upload after calibration changes. The [ESP32 ADC reference](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/adc.html) explains raw 12-bit readings and attenuation; raw counts are not calibrated voltages.
+Calibration in `board_config.h` uses **raw ADC counts**: X rest 1905, full throttle 3900, full brake 100, dead zone 300; Y gear centre 1915. These centres come from the released-stick telemetry; observed full travel reached 0/4095. Each side of X normalizes separately from centre to its endpoint, then smooths at 100 Hz. There is no boot auto-calibration that could mistake a held stick for centre. Keep the throttle/brake endpoints on opposite sides of rest. `adc` aliases X for older readers; `x_adc` and `y_adc` retain physical-axis meaning. Rebuild and upload after calibration changes. The [ESP32 ADC reference](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/adc.html) explains raw readings and attenuation; raw counts are not calibrated voltages.
 
 A full-travel trigger/pot can still use this firmware by setting rest/full to its measured endpoints and a smaller dead zone. An encoder is not wired or decoded in this profile.
 
@@ -133,9 +133,11 @@ For a live engine-level comparison, add `--gain 0.8 --live`. This **writes** an 
 
 For an output-path comparison, add `--tone --seconds 15`. This **writes** a `t` command to the identified toy: the engine stops and eight quiet 660 Hz beeps play for about 12 seconds, with soft edges and silence between them. The test uses the configured sample rate and 32-bit stereo I²S path but bypasses the engine sound source. It finishes with the engine off; release and click the stick to start normally again. No diagnostic sound plays automatically at boot. Telemetry includes numeric `tone` (active) and `tone_request` fields. Clean beeps would narrow the investigation toward the engine sound or frequency-dependent speaker response; distorted beeps would point toward the output path. Neither result alone identifies a particular faulty component.
 
-**Current bench state:** sample rate is temporarily **16 kHz**, compared with the original 32 kHz. Luke reports distorted beeps at both rates. This is an unresolved diagnostic state, not a sound-quality fix. The fixed sample-count engine delay and gain smoothing also take twice as long at 16 kHz; judge this comparison using the independent beeps. Return to the intended engine rate after resolving the output fault.
+**Current bench state:** sample rate remains **16 kHz**, the rate used in the user-accepted toy profile. Earlier distorted-beep trials were superseded by the clear/loud Iris reference and PCM packing/source-texture corrections. The fixed sample-count engine delay and gain smoothing still reflect this rate; no clock or I2S changes are part of this refinement.
 
 The engine retains the clean reference's signed PCM16 conversion in the high 16 bits of each 32-bit slot and six 320-frame DMA buffers. Luke heard the same static in the original host render and confirmed that disabling random intake/firing texture removed it. Combustion presets now envelope those random components using positive RPM acceleration, with about 60 ms attack and 350 ms release, while preserving the deterministic engine tone and the intake/roughness depth controls. Steady revs no longer sustain the random hiss. Turbine/ion texture remains unchanged. The starter motor is a separate deterministic firmware layer; browser and firmware share catch timing/RPM behavior, but this dedicated motor layer is currently firmware-only.
+
+Combustion crank flutter now fades from full at idle to zero at twice idle RPM. Previously the default V8's 4 Hz flutter perturbed a commanded 4000 RPM to approximately 3970–4030 firing RPM throughout the climb. The new firmware output stage doubles engine/starter amplitude below its 0.8 knee, then smoothly limits peaks below 0.96 full scale. It has no time-varying compressor gain that could introduce pumping. Diagnostic tones bypass this boost. `volume=0.8` and `makeup=2.0` identify the current profile; lowering live gain still works. Acoustic loudness and amplifier/speaker behavior require listening, not just digital bounds.
 
 The browser's Tune controls remain the patch editor. Save a patch, then append it as the ninth firmware character:
 
@@ -157,8 +159,8 @@ python tools/check_starter_sound.py
 node --test tests/*.test.mjs
 ```
 
-Checks cover centred-stick idle/dead zone/opposite travel, either endpoint direction, invalid calibration, stick-driven ignition/rev/return to idle, neutral/drive/shift/brake/boost, rejected over-rev, button tap/release latching, stop at full throttle, cancel during cranking, boot-held button, rejected start with held throttle, no delayed start or hold-repeat, contact bounce, maintained-switch compatibility, one shift per held gear button, finite bounded sound for eight patches, seed determinism, firing frequency and fading to exact silence. A 20-second drive trace is compared at 20 checkpoints against the browser model. The generated WAV is **host synthesis**, not a recording from the ESP.
+Checks cover centre dead zones/endpoints, neutral/drive/shift/proportional brake/boost, stronger launch, rejected over-rev, motion-preserving character changes, short-click release, long-hold/repeat without power toggles, cancellation, boot-held interlock, throttle-invalid presses, contact bounce, millis wrap, maintained-switch compatibility, and one shift per gear excursion. DSP checks cover all eight patches, louder-output headroom, seed determinism, firing frequency, idle-only flutter, acceleration texture and silence. A 20-second drive trace is compared at 20 checkpoints against the browser model. The generated WAV is **host synthesis**, not a recording from the ESP.
 
 Audio runs on a separate task with 128 frames per synthesis block, six 320-frame DMA buffers, duplicated 32-bit stereo slots and continuous silent clocks while off. DMA capacity is currently 120 ms at 16 kHz, compared with the original four 128-frame buffers' 32 ms; the increased capacity can also increase control-to-sound latency. The original 32 kHz rate gives a 4,000 µs synthesis-block deadline; the current 16 kHz bench comparison gives 8,000 µs. No Wi-Fi or Bluetooth is initialized. Stale input updates ramp to silence after 250 ms; an I²S write fault latches mute until reboot. Serial reports maximum render time, blocks exceeding the configured synthesis deadline, and write errors. Those counters do not independently prove that no DMA underrun or acoustic glitch occurred.
 
-Board identity, a verified full-flash backup, flash readback, boot and live centred-stick zero throttle have passed on the connected S3. See `docs/verification.md` for measurements. **Physical sound and the full control sequence are unverified — need user confirmation and a bench test.** Remaining acceptance: confirm full stick travel, brake click and one shift per press; capture/listen to V8 and ion sounds; run active synthesis for two minutes with `render_max_us < 4000`, `render_late=0`, `write_errors=0`, no audible glitches; verify ignition-off silence and boot interlock; then assess comfortable volume and speaker heating. No battery or enclosure has been built yet.
+Board identity, a verified full-flash backup, flash readback and physical start/rev/up/downshift response passed for the previous profile, which Luke described as working pretty well. See `docs/verification.md` for the latest evidence. **The louder output, remapped controls and held-click cycling need a fresh physical/listening check.** Verify both pedals, gears, character cycling/release, short-click stop and smooth rev climb; inspect the 8000 µs render budget and error counters alongside actual sound. No battery or enclosure has been built yet.

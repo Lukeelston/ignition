@@ -101,7 +101,8 @@ export class EngineSynth {
       const n = this.noise();
       this.shaft = (this.shaft + this.rpm/(60*sr)) % 1;
       this.field = (this.field + p.modulation/sr) % 1;
-      const flutter = 1 + p.roughness*.025*Math.sin(TAU*this.field);
+      const idleFlutter=p.mode==='combustion'?clamp(2-this.rpm/p.idle,0,1):1;
+      const flutter = 1 + p.roughness*.025*idleFlutter*Math.sin(TAU*this.field);
       this.phase += this.rpm*p.cylinders / ((p.stroke===4 ? 120 : 60)*sr) * flutter;
       const spacing = p.firing==='uneven' ? (this.firings%2 ? 1.38:.62) : 1;
       if (this.phase >= spacing) {

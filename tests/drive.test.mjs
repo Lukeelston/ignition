@@ -38,6 +38,20 @@ test('brake slows the toy and boost makes it accelerate harder',()=>{
   const braking=advance(b,1,{brake:true});
   assert.ok(braking.speed<boost.speed);assert.ok(braking.speed>=0);
 });
+test('brake travel is proportional and the uprated engine pulls harder',()=>{
+  const a=new ToyDrive(),b=new ToyDrive();
+  for(const d of [a,b]){d.start();advance(d,1.5);d.shift(1);advance(d,2,{throttle:.65});}
+  assert.ok(a.speed>19,'uprated launch should exceed the measured former 15.00 km/h benchmark');
+  const light=advance(a,.2,{brake:.2}),hard=advance(b,.2,{brake:1});
+  assert.ok(light.speed>hard.speed+3,'small brake travel must not apply full braking');
+});
+test('changing to a low-redline engine while moving does not teleport road speed',()=>{
+  const d=new ToyDrive();d.start();advance(d,1.5);d.shift(1);advance(d,6,{throttle:1});
+  const before=d.speed;d.configure({idle:500,redline:3500,response:.2});
+  const s=d.step(.01,{throttle:1});
+  assert.ok(Math.abs(s.speed-before)<1,'engine change must preserve vehicle momentum');
+  assert.ok(s.rpm<=3500);
+});
 test('an upshift increases load after torque interruption while preserving road speed',()=>{
   const d=new ToyDrive();d.start();advance(d,1.5);d.shift(1);
   const before=advance(d,5,{throttle:.8});

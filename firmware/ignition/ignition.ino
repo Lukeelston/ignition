@@ -8,6 +8,7 @@
 #include "test_tone.h"
 #include "stick_shift.h"
 #include "starter_sound.h"
+#include "output_stage.h"
 
 #if !defined(CONFIG_IDF_TARGET_ESP32S3)
 #error This wiring profile is for ESP32-S3 only.
@@ -25,12 +26,12 @@ static size_t currentPreset=0;
 static bool ready=false;
 static int throttleRaw=0,gearRaw=0;
 static uint32_t stickShifts=0;
-static float filteredThrottle=0;
+static float filteredThrottle=0,filteredBrake=0;
 
 // Keep both USB sockets useful. USB telemetry is best-effort: a closed or stalled
 // monitor must never block the input loop long enough to trip the audio watchdog.
 static void report(const char* format,...){
-  char message[384];va_list args;va_start(args,format);
+  char message[448];va_list args;va_start(args,format);
   const int result=vsnprintf(message,sizeof(message),format,args);va_end(args);
   if(result<=0)return;
   const size_t length=std::min(size_t(result),sizeof(message)-1);
@@ -54,7 +55,7 @@ static void audioTask(void*) {
     if(!fresh||stats.writeErrors)tone.stop();
     synth.process(mono,board::blockFrames,command.rpm,command.load,fresh&&!stats.writeErrors?command.volume:0);
     const float starterLevel=fresh&&!stats.writeErrors?command.starter*command.volume:0;
-    for(int i=0;i<board::blockFrames;i++)mono[i]+=starter.next(starterLevel);
+    for(int i=0;i<board::blockFrames;i++)mono[i]=speakerSample(mono[i]+starter.next(starterLevel),board::outputMakeup);
     if(tone.active())for(int i=0;i<board::blockFrames;i++)mono[i]+=tone.next();
     stats.toneActive=tone.active();
     for(int i=0;i<board::blockFrames;i++)stereo[2*i]=stereo[2*i+1]=pcm32(mono[i]);
@@ -105,10 +106,10 @@ void setup(){
   controller.drive.configure(kPatches[0]);
   ready=beginAudio();
   rgbLedWrite(board::rgb,ready?0:20,0,ready?5:0);
-  report("Ignition handheld 0.4 | ESP32-S3 | detected_flash=%u | PSRAM unused | audio=%s | sample_rate=%u\n",ESP.getFlashChipSize(),ready?"ready":"FAILED",sampleRate);
+  report("Ignition handheld 0.5 | ESP32-S3 | detected_flash=%u | PSRAM unused | audio=%s | sample_rate=%u\n",ESP.getFlashChipSize(),ready?"ready":"FAILED",sampleRate);
   report("Thumbstick: rest=%d full=%d dead_zone=%d. USB/UART: 115200.\n",board::throttleRest,board::throttleFull,board::throttleDeadZone);
-  report("VRx GPIO%d: centre to arm; right/high shifts up, left/low down. Return to centre each time.\n",board::gearAxis);
-  report(board::ignitionIsButton?"Centre stick. Release ignition button, then tap to start/stop.\n":"Centre stick. Switch ignition OFF, then ON. No automatic boot sound.\n");
+  report("VRx GPIO%d: right/high throttle, left/low brake. VRy GPIO%d: high shift up, low down; centre between shifts.\n",board::throttle,board::gearAxis);
+  report(board::ignitionIsButton?"Centre stick. Short click/release starts/stops; hold cycles engines (650 ms, repeat 900 ms).\n":"Centre stick. Switch ignition OFF, then ON. No automatic boot sound.\n");
   report("USB: t = quiet beeps; digits 0..8 = engine gain 0.0..0.8. Gain resets on reboot.\n");
 }
 
@@ -131,15 +132,18 @@ void loop(){
   throttleRaw=analogRead(board::throttle);
   gearRaw=analogRead(board::gearAxis);
   const float throttle=normalizeThrottle(throttleRaw,board::throttleRest,board::throttleFull,board::throttleDeadZone);
+  const float brake=normalizeThrottle(throttleRaw,board::throttleRest,board::brakeFull,board::throttleDeadZone);
   filteredThrottle+=(throttle-filteredThrottle)*.45f;
+  filteredBrake+=(brake-filteredBrake)*.45f;
   Inputs inputs;inputs.throttle=filteredThrottle<.01f?0:filteredThrottle;
+  inputs.brakeLevel=filteredBrake<.01f?0:filteredBrake;
   inputs.up=digitalRead(board::gearUp)==LOW;inputs.down=digitalRead(board::gearDown)==LOW;inputs.brake=digitalRead(board::brake)==LOW;
   inputs.ignition=digitalRead(board::ignitionSwitch)==LOW;inputs.boost=digitalRead(board::boost)==LOW;inputs.character=digitalRead(board::character)==LOW;
   controller.update(now,inputs);
   if(controller.nextCharacter){currentPreset=(currentPreset+1)%kPresetCount;controller.drive.configure(kPatches[currentPreset]);}
   xQueuePeek(statistics,&stats,0);
   if(stats.writeErrors||testing)controller.drive.stop();
-  if(controller.drive.state==Drive::Running&&!inputs.up&&!inputs.down){
+  if(controller.drive.state==Drive::Running&&!inputs.up&&!inputs.down&&!inputs.ignition){
     const int direction=gearStick.update(gearRaw,now);
     if(direction&&controller.drive.shift(direction))++stickShifts;
   }else gearStick.reset();
@@ -155,7 +159,7 @@ void loop(){
   }
   if(now-lastReport>=1000){
     lastReport=now;
-    report("preset=%s gear=%d rpm=%.0f speed=%.1f load=%.2f starter=%.2f throttle=%.2f adc=%d x_adc=%d shifts=%u key=%d state=%d button_mode=%d volume=%.2f pcm_peak=%.5f pcm_rms=%.5f tone=%d tone_request=%u blocks=%u render_max_us=%u render_late=%u write_errors=%u heap=%u\n",kPresetNames[currentPreset],controller.drive.gear,controller.drive.rpm,controller.drive.speed,controller.drive.load,controller.drive.starter,inputs.throttle,throttleRaw,gearRaw,stickShifts,inputs.ignition,int(controller.drive.state),board::ignitionIsButton,outputVolume,stats.pcm.peak,stats.pcm.rms,stats.toneActive,toneRequest,stats.blocks,stats.renderMaxUs,stats.renderLate,stats.writeErrors,ESP.getFreeHeap());
+    report("preset=%s gear=%d rpm=%.0f speed=%.1f load=%.2f starter=%.2f throttle=%.2f brake=%.2f adc=%d x_adc=%d y_adc=%d shifts=%u key=%d state=%d button_mode=%d volume=%.2f makeup=%.1f pcm_peak=%.5f pcm_rms=%.5f tone=%d tone_request=%u blocks=%u render_max_us=%u render_late=%u write_errors=%u heap=%u\n",kPresetNames[currentPreset],controller.drive.gear,controller.drive.rpm,controller.drive.speed,controller.drive.load,controller.drive.starter,inputs.throttle,controller.brakeAmount,throttleRaw,throttleRaw,gearRaw,stickShifts,inputs.ignition,int(controller.drive.state),board::ignitionIsButton,outputVolume,board::outputMakeup,stats.pcm.peak,stats.pcm.rms,stats.toneActive,toneRequest,stats.blocks,stats.renderMaxUs,stats.renderLate,stats.writeErrors,ESP.getFreeHeap());
   }
   vTaskDelayUntil(&wake,pdMS_TO_TICKS(10));
 }

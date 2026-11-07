@@ -24,7 +24,8 @@ export class ToyDrive {
   step(seconds,{throttle=0,brake=false,boost=false}={}) {
     if(!Number.isFinite(seconds)||seconds<0)throw new Error('Invalid drive time.');
     if(!Number.isFinite(throttle))throw new Error('Invalid throttle.');
-    throttle=driveClamp(throttle,0,1);
+    brake=Number(brake);if(!Number.isFinite(brake))throw new Error('Invalid brake.');
+    throttle=driveClamp(throttle,0,1);brake=driveClamp(brake,0,1);
     // Cap catch-up after a suspended browser; never jump the toy forward minutes.
     let remaining=Math.min(seconds,.25);
     while(remaining>1e-8){const dt=Math.min(.01,remaining);this.tick(dt,throttle,brake,boost);remaining-=dt;}
@@ -47,14 +48,14 @@ export class ToyDrive {
     }
     this.shiftTime=Math.max(0,this.shiftTime-dt);
     const ratio=DRIVE_RATIOS[this.gear], shifting=this.shiftTime>0;
-    const driveThrottle=shifting||brake?0:throttle;
+    const driveThrottle=shifting?0:throttle*(1-brake);
     if(ratio) {
       const wheelRPM=this.speed*ratio*48;
       const torque=Math.max(.15,1-.5*wheelRPM/this.redline);
-      const acceleration=driveThrottle*(boost?1.5:1)*16*(ratio/3.2)*torque;
+      const acceleration=this.speed>this.redline/(ratio*48)?0:driveThrottle*(boost?1.5:1)*21.6*(ratio/3.2)*torque;
       const drag=.35+this.speed*.012+(1-driveThrottle)*2.5;
-      this.speed=driveClamp(this.speed+(acceleration-drag-(brake?30:0))*dt,0,this.redline/(ratio*48));
-    } else this.speed=Math.max(0,this.speed-(.5+this.speed*.012+(brake?30:0))*dt);
+      this.speed=driveClamp(this.speed+(acceleration-drag-brake*30)*dt,0,Math.max(this.speed,this.redline/(ratio*48)));
+    } else this.speed=Math.max(0,this.speed-(.5+this.speed*.012+brake*30)*dt);
     const target=ratio?Math.max(this.idle,this.speed*ratio*48):this.idle+(this.redline-this.idle)*Math.pow(driveThrottle,.7);
     this.rpm+=(target-this.rpm)*(1-Math.exp(-dt/(shifting?.07:.10+(1-this.response)*.20)));
     this.rpm=driveClamp(this.rpm,this.idle,this.redline);

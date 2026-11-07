@@ -10,6 +10,20 @@ const peak = a => a.reduce((v, x) => Math.max(v, Math.abs(x)), 0);
 if (api) {
   const {EngineSynth, PRESETS, renderClip, encodeWav, parsePatch, serializePatch, validatePatch} = api;
   const base = PRESETS[0].patch;
+  test('idle roughness does not wobble combustion pitch at driving RPM', () => {
+    for(const sr of [16000,48000]){
+      for(const rpm of [3000,6000]){
+        const a=new EngineSynth({...base,rpm,roughness:.5},sr);
+        const b=new EngineSynth({...base,rpm,roughness:0},sr);
+        const x=a.process(new Float32Array(sr)),y=b.process(new Float32Array(sr));
+        assert.ok(rms(x.map((v,i)=>v-y[i]))<1e-6,'held RPM must not receive periodic crank flutter');
+      }
+      const a=new EngineSynth({...base,rpm:750,roughness:.5},sr);
+      const b=new EngineSynth({...base,rpm:750,roughness:0},sr);
+      const x=a.process(new Float32Array(sr)),y=b.process(new Float32Array(sr));
+      assert.ok(rms(x.map((v,i)=>v-y[i]))>.001,'idle must retain its rough character');
+    }
+  });
   test('all presets produce finite, bounded and non-silent audio', () => {
     for (const preset of PRESETS) {
       const a = renderClip(preset.patch, {duration: 2, motion: 'rev'});

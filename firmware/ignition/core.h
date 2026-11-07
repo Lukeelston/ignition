@@ -45,13 +45,13 @@ public:
     if(direction<0&&next>0&&speed*ratios[next]*48>redline*.98f){overRev=true;return false;}
     gear=next;shiftTime=.18f;overRev=false;return true;
   }
-  void step(float seconds,float throttle,bool brake=false,bool boost=false){
-    if(!std::isfinite(seconds)||!std::isfinite(throttle)||seconds<=0)return;
-    float remaining=std::min(seconds,.25f);throttle=bounded(throttle,0,1);
+  void step(float seconds,float throttle,float brake=0,bool boost=false){
+    if(!std::isfinite(seconds)||!std::isfinite(throttle)||!std::isfinite(brake)||seconds<=0)return;
+    float remaining=std::min(seconds,.25f);throttle=bounded(throttle,0,1);brake=bounded(brake,0,1);
     while(remaining>1e-7f){const float dt=std::min(.01f,remaining);tick(dt,throttle,brake,boost);remaining-=dt;}
   }
 private:
-  void tick(float dt,float throttle,bool brake,bool boost){
+  void tick(float dt,float throttle,float brake,bool boost){
     if(state==Off)return;
     elapsed+=dt;
     if(state==Cranking){
@@ -61,13 +61,13 @@ private:
       if(crank>=1.35f){state=Running;rpm=idle;starter=0;}return;
     }
     shiftTime=std::max(0.f,shiftTime-dt);
-    const float ratio=ratios[gear],driveThrottle=(shiftTime>0||brake)?0:throttle;
+    const float ratio=ratios[gear],driveThrottle=shiftTime>0?0:throttle*(1-brake);
     if(ratio){
       const float torque=std::max(.15f,1-.5f*speed*ratio*48/redline);
-      const float acceleration=driveThrottle*(boost?1.5f:1.f)*16*(ratio/3.2f)*torque;
+      const float acceleration=speed>redline/(ratio*48)?0:driveThrottle*(boost?1.5f:1.f)*21.6f*(ratio/3.2f)*torque;
       const float drag=.35f+speed*.012f+(1-driveThrottle)*2.5f;
-      speed=bounded(speed+(acceleration-drag-(brake?30:0))*dt,0,redline/(ratio*48));
-    }else speed=std::max(0.f,speed-(.5f+speed*.012f+(brake?30:0))*dt);
+      speed=bounded(speed+(acceleration-drag-brake*30)*dt,0,std::max(speed,redline/(ratio*48)));
+    }else speed=std::max(0.f,speed-(.5f+speed*.012f+brake*30)*dt);
     const float target=ratio?std::max(idle,speed*ratio*48):idle+(redline-idle)*std::pow(driveThrottle,.7f);
     rpm+=(target-rpm)*(1-std::exp(-dt/(shiftTime>0?.07f:.10f+(1-response)*.20f)));
     rpm=bounded(rpm,idle,redline);limiter=rpm>redline*.975f&&throttle>.8f;
@@ -88,7 +88,7 @@ public:
     if(candidate!=value&&uint32_t(now-since)>=20){value=candidate;rise=value;fall=!value;}
   }
 };
-struct Inputs {float throttle=0;bool up=false,down=false,brake=false,ignition=false,boost=false,character=false;};
+struct Inputs {float throttle=0,brakeLevel=0;bool up=false,down=false,brake=false,ignition=false,boost=false,character=false;};
 inline float normalizeThrottle(int raw,int rest,int full,int deadZone){
   if(deadZone<0)return 0;
   const float travel=float(full)-rest,span=std::fabs(travel);
@@ -99,21 +99,34 @@ inline float normalizeThrottle(int raw,int rest,int full,int deadZone){
 class Controller {
   Debounced up,down,brake,key,boost,character;
   const bool momentary;
-  bool initialized=false,armed=false;uint32_t last=0;
+  bool initialized=false,armed=false,pressPending=false,longPress=false,startAllowed=false;
+  uint32_t last=0,pressSince=0,lastCycle=0;
 public:
   explicit Controller(bool ignitionIsButton=true):momentary(ignitionIsButton){}
-  Drive drive;bool nextCharacter=false,boostOn=false,braking=false;
+  Drive drive;bool nextCharacter=false,boostOn=false,braking=false;float brakeAmount=0;
   void update(uint32_t now,const Inputs& in){
     float dt=initialized?std::min(.05f,float(uint32_t(now-last))*.001f):.01f;
     initialized=true;last=now;
     up.update(in.up,now);down.update(in.down,now);brake.update(in.brake,now);key.update(in.ignition,now);boost.update(in.boost,now);character.update(in.character,now);
     const float throttle=std::isfinite(in.throttle)?bounded(in.throttle,0,1):0;
+    nextCharacter=character.rise;
     if(momentary){
       if(!key.value)armed=true;
-      else if(key.rise&&armed){
-        armed=false;
-        if(drive.state!=Drive::Off)drive.stop();
-        else if(throttle<.04f)drive.start();
+      if(key.rise&&armed){
+        armed=false;pressPending=true;longPress=false;startAllowed=throttle<.04f;pressSince=now;
+      }
+      if(pressPending){
+        if(throttle>=.04f)startAllowed=false;
+        if(key.value&&((!longPress&&uint32_t(now-pressSince)>=650)||(longPress&&uint32_t(now-lastCycle)>=900))){
+          nextCharacter=true;longPress=true;lastCycle=now;
+        }
+        if(key.fall){
+          if(!longPress){
+            if(drive.state!=Drive::Off)drive.stop();
+            else if(startAllowed&&throttle<.04f)drive.start();
+          }
+          pressPending=false;
+        }
       }
     }else{
       if(!key.value){drive.stop();armed=throttle<.04f;}
@@ -121,8 +134,10 @@ public:
     }
     if(up.rise&&!down.value)drive.shift(1);
     if(down.rise&&!up.value)drive.shift(-1);
-    nextCharacter=character.rise;boostOn=boost.value;braking=brake.value;
-    drive.step(dt,throttle,braking,boostOn);
+    boostOn=boost.value;
+    brakeAmount=std::max(brake.value?1.f:0.f,std::isfinite(in.brakeLevel)?bounded(in.brakeLevel,0,1):0.f);
+    braking=brakeAmount>.01f;
+    drive.step(dt,throttle,brakeAmount,boostOn);
   }
 };
 
@@ -165,7 +180,7 @@ public:
     audible=wantedGain>0;
     if(wantedGain==0&&gain<.00001f){gain=0;std::fill(output,output+count,0.f);return;}
     const float ease=1-std::exp(-float(count)/(sampleRate*.04f));
-    float Patch::* parameters[]={&Patch::body,&Patch::exhaust,&Patch::rasp,&Patch::roughness,&Patch::intake,&Patch::whine,&Patch::turbo,&Patch::response,&Patch::sub,&Patch::reactor,&Patch::modulation,&Patch::space,&Patch::redline};
+    float Patch::* parameters[]={&Patch::body,&Patch::exhaust,&Patch::rasp,&Patch::roughness,&Patch::intake,&Patch::whine,&Patch::turbo,&Patch::response,&Patch::sub,&Patch::reactor,&Patch::modulation,&Patch::space,&Patch::idle,&Patch::redline};
     for(auto member:parameters)p.*member+=(target.*member-p.*member)*ease;
     p.mode=target.mode;p.firing=target.firing;p.cylinders=target.cylinders;p.stroke=target.stroke;
     const float rpmEase=1-std::exp(-1/(sampleRate*(.045f+(1-p.response)*.52f)));
@@ -182,7 +197,8 @@ public:
       textureEnvelope+=(activity-textureEnvelope)*(activity>textureEnvelope?textureAttack:textureRelease);
       const float texture=p.mode==Mode::Combustion?textureEnvelope:1;
       const float n=noise();shaft=wrap(shaft+rpm/(60*sampleRate));fieldPhase=wrap(fieldPhase+p.modulation/sampleRate);
-      phase+=rpm*p.cylinders/((p.stroke==4?120:60)*sampleRate)*(1+p.roughness*.025f*sinCycle(fieldPhase));
+      const float idleFlutter=p.mode==Mode::Combustion?bounded(2-rpm/p.idle,0,1):1;
+      phase+=rpm*p.cylinders/((p.stroke==4?120:60)*sampleRate)*(1+p.roughness*.025f*idleFlutter*sinCycle(fieldPhase));
       const float spacing=p.firing==Firing::Uneven?(firings%2?1.38f:.62f):1;
       if(phase>=spacing){phase-=spacing;const float weight=(p.firing==Firing::Cross?crossGains[firings%8]:1)*(1+p.roughness*n*.32f*texture);pulse+=weight;edge+=weight;firings++;}
       pulse*=pulseDecay;edge*=edgeDecay;const float combustion=pulse-edge;

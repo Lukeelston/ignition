@@ -1,6 +1,7 @@
 #include "../firmware/ignition/core.h"
 #include "../firmware/ignition/presets.h"
 #include "../firmware/ignition/test_tone.h"
+#include "../firmware/ignition/output_stage.h"
 #include <cassert>
 #include <cstdio>
 #include <fstream>
@@ -12,6 +13,91 @@ static void advance(Drive& d,int ticks,float throttle=0,bool brake=false,bool bo
 }
 int main(int argc,char** argv) {
   assert(argc==2);
+  assert(speakerSample(0,2)==0);
+  assert(std::fabs(speakerSample(.2f,2)-.4f)<1e-6f);
+  assert(std::fabs(speakerSample(-.2f,2)+.4f)<1e-6f);
+  float lastOutput=0;
+  for(int i=0;i<=10000;i++){
+    const float x=float(i)/1000,y=speakerSample(x,2);
+    assert(std::isfinite(y)&&y<.96f&&y>=lastOutput);
+    assert(std::fabs(y+speakerSample(-x,2))<1e-6f);lastOutput=y;
+  }
+  assert(speakerSample(NAN,2)==0&&speakerSample(.1f,INFINITY)==0);
+  assert(speakerSample(.5f,0)==0);
+  float speakerPeak=0;double v8LevelRatio=0;
+  for(size_t index=0;index<kPresetCount;index++){
+    Synth synth(kPatches[index]);float block[128];double original=0,louder=0;
+    for(int n=0;n<500;n++){
+      synth.process(block,128,kPatches[index].redline*.65f,.85f,.8f);
+      for(float x:block){const float y=speakerSample(x,2);original+=x*x;louder+=y*y;
+        speakerPeak=std::max(speakerPeak,std::fabs(y));assert(std::isfinite(y)&&std::fabs(y)<.96f);}
+    }
+    assert(louder>original*1.7*1.7);
+    if(index==0)v8LevelRatio=std::sqrt(louder/original);
+  }
+  // A press is undecided until release/hold: long press must never toggle power.
+  {
+    Controller c;Inputs in;uint32_t now=0;int cycles=0;
+    auto tick=[&](int n){for(int i=0;i<n;i++){now+=10;c.update(now,in);if(c.nextCharacter)cycles++;}};
+    tick(5);in.ignition=true;tick(5);assert(c.drive.state==Drive::Off);
+    in.ignition=false;tick(5);assert(c.drive.state==Drive::Cranking);
+    tick(150);in.ignition=true;tick(70);
+    assert(c.drive.state==Drive::Running&&cycles==1);
+    tick(90);assert(cycles==2);in.ignition=false;tick(5);
+    assert(c.drive.state==Drive::Running&&cycles==2);
+    in.ignition=true;tick(5);in.ignition=false;tick(5);assert(c.drive.state==Drive::Off);
+    in.ignition=true;tick(70);assert(cycles==3&&c.drive.state==Drive::Off);
+    in.ignition=false;tick(5);assert(c.drive.state==Drive::Off);
+    // A start press rejected under throttle cannot become valid on release.
+    in.throttle=1;in.ignition=true;tick(5);in.throttle=0;tick(5);
+    in.ignition=false;tick(5);assert(c.drive.state==Drive::Off);
+    // Pressing at idle then moving the throttle also rejects the whole tap.
+    in.ignition=true;tick(5);in.throttle=1;tick(5);in.throttle=0;
+    in.ignition=false;tick(5);assert(c.drive.state==Drive::Off);
+    // Short taps still cancel the starter.
+    in.ignition=true;tick(5);in.ignition=false;tick(5);assert(c.drive.state==Drive::Cranking);
+    in.ignition=true;tick(5);in.ignition=false;tick(5);assert(c.drive.state==Drive::Off);
+    for(int i=0;i<8;i++){in.ignition=!in.ignition;tick(1);}tick(5);assert(c.drive.state==Drive::Off);
+  }
+  {
+    Controller c;Inputs in;in.ignition=true;int cycles=0;
+    for(uint32_t t=0;t<2000;t+=10){c.update(t,in);cycles+=c.nextCharacter;}
+    assert(c.drive.state==Drive::Off&&cycles==0);
+    in.ignition=false;for(uint32_t t=2000;t<2100;t+=10)c.update(t,in);
+    in.ignition=true;for(uint32_t t=2100;t<2150;t+=10)c.update(t,in);
+    in.ignition=false;for(uint32_t t=2150;t<2200;t+=10)c.update(t,in);
+    assert(c.drive.state==Drive::Cranking);
+  }
+  {
+    Controller c;Inputs in;uint32_t now=UINT32_MAX-500;int cycles=0;
+    for(int i=0;i<210;i++){
+      in.ignition=i>=5&&i<200;now+=10;c.update(now,in);cycles+=c.nextCharacter;
+    }
+    assert(cycles==2&&c.drive.state==Drive::Off); // hold/repeat survives millis wrap
+  }
+  {
+    Drive light,hard;
+    for(auto* d:{&light,&hard}){d->start();advance(*d,150);d->shift(1);advance(*d,200,.65f);}
+    assert(light.speed>19); // measured old profile: 15.00 km/h at this point
+    for(int i=0;i<20;i++){light.step(.01f,0,.2f);hard.step(.01f,0,1);}
+    assert(light.speed>hard.speed+3);
+    advance(light,500,1);const float before=light.speed;
+    light.configure(kPatches[4]);light.step(.01f,1);
+    assert(std::fabs(light.speed-before)<1&&light.rpm<=kPatches[4].redline);
+    Controller c;Inputs in;c.update(0,in);in.brakeLevel=.25f;c.update(10,in);
+    assert(c.braking&&c.brakeAmount==.25f);
+    in.brake=true;c.update(20,in);c.update(40,in);assert(c.brakeAmount==1);
+  }
+  // Idle roughness must not bend firing pitch throughout a steady high-RPM run.
+  for(float rpm:{750.f,3000.f,6000.f}){
+    Patch pa=kPatches[0];pa.rpm=rpm;pa.roughness=.5f;Patch pb=pa;pb.roughness=0;
+    Synth a(pa),b(pb);float x[128],y[128];double energy=0;
+    for(int i=0;i<125;i++){
+      a.process(x,128,rpm,.5f,.8f);b.process(y,128,rpm,.5f,.8f);
+      for(int j=0;j<128;j++)energy+=(x[j]-y[j])*(x[j]-y[j]);
+    }
+    if(rpm==750)assert(energy/sampleRate>1e-6);else assert(energy/sampleRate<1e-12);
+  }
   // Bench gain commands must stay bounded; unrelated USB input leaves the gain
   // alone. Meter the actual packed stereo words, including silence and signs.
   assert(benchGain('0',.22f)==0&&benchGain('8',.22f)==.8f);
@@ -60,38 +146,6 @@ int main(int argc,char** argv) {
   advance(a,200,.65f);advance(b,200,.65f,false,true);assert(b.speed>a.speed*1.1f);
   d.start();advance(d,150);for(int g=1;g<=6;g++){assert(d.shift(1));advance(d,30);}
   advance(d,6000,1,false,true);assert(!d.shift(-1)&&d.overRev);assert(d.rpm<=7000);
-
-  // Breadboard ignition button: one tap latches on, another tap stops.
-  Controller button;Inputs buttonIn;uint32_t buttonNow=0;
-  auto buttonTick=[&](int n){for(int i=0;i<n;i++){buttonNow+=10;button.update(buttonNow,buttonIn);}};
-  buttonTick(5);buttonIn.ignition=true;buttonTick(5);
-  assert(button.drive.state==Drive::Cranking);
-  buttonIn.ignition=false;buttonTick(150);
-  assert(button.drive.state==Drive::Running); // Release must not switch off.
-  buttonIn.throttle=1;buttonTick(100);assert(button.drive.rpm>6000);
-  buttonIn.ignition=true;buttonTick(100);assert(button.drive.state==Drive::Off);
-  buttonIn.throttle=0;buttonTick(100);assert(button.drive.state==Drive::Off); // No hold-repeat.
-  buttonIn.ignition=false;buttonTick(5);
-  // Contact chatter shorter than the debounce window must not start it.
-  for(int i=0;i<6;i++){buttonIn.ignition=!buttonIn.ignition;buttonTick(1);}
-  buttonTick(5);assert(button.drive.state==Drive::Off);
-  buttonIn.throttle=1;buttonIn.ignition=true;buttonTick(5);assert(button.drive.state==Drive::Off);
-  buttonIn.throttle=0;buttonTick(100);assert(button.drive.state==Drive::Off); // No delayed start.
-  buttonIn.ignition=false;buttonTick(5);buttonIn.ignition=true;buttonTick(150);
-  assert(button.drive.state==Drive::Running);
-  buttonTick(100);assert(button.drive.state==Drive::Running); // Holding cannot toggle repeatedly.
-  buttonIn.ignition=false;buttonTick(5);buttonIn.ignition=true;buttonTick(5);
-  assert(button.drive.state==Drive::Off);
-  buttonIn.ignition=false;buttonTick(5);buttonIn.ignition=true;buttonTick(5);
-  assert(button.drive.state==Drive::Cranking);
-  buttonIn.ignition=false;buttonTick(5);buttonIn.ignition=true;buttonTick(5);
-  assert(button.drive.state==Drive::Off); // A second tap also cancels cranking.
-  Controller heldButton;Inputs heldIn;heldIn.ignition=true;
-  for(uint32_t t=0;t<1000;t+=10)heldButton.update(t,heldIn);
-  assert(heldButton.drive.state==Drive::Off);
-  heldIn.ignition=false;for(uint32_t t=1000;t<1100;t+=10)heldButton.update(t,heldIn);
-  heldIn.ignition=true;for(uint32_t t=1100;t<2700;t+=10)heldButton.update(t,heldIn);
-  assert(heldButton.drive.state==Drive::Running);
 
   // Maintained-switch compatibility: held ignition at boot must not start.
   Controller c(false);Inputs in;in.ignition=true;
@@ -201,5 +255,5 @@ int main(int argc,char** argv) {
     parity.step(.01f,t,i>=1600,i>=1100&&i<1400);
     if(i%100==99)trace<<i<<","<<parity.rpm<<","<<parity.speed<<","<<parity.load<<","<<parity.gear<<"\n";
   }
-  std::printf("{\"passed\":true,\"sample_rate\":%u,\"patches\":%zu,\"peak\":%.5f,\"rms\":%.5f,\"synth_bytes\":%zu}\n",sampleRate,kPresetCount,peak,std::sqrt(totalEnergy/(kPresetCount*500*128)),sizeof(Synth));
+  std::printf("{\"passed\":true,\"sample_rate\":%u,\"patches\":%zu,\"peak\":%.5f,\"rms\":%.5f,\"speaker_peak\":%.5f,\"speaker_v8_rms_ratio\":%.5f,\"synth_bytes\":%zu}\n",sampleRate,kPresetCount,peak,std::sqrt(totalEnergy/(kPresetCount*500*128)),speakerPeak,v8LevelRatio,sizeof(Synth));
 }
