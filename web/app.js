@@ -1,8 +1,8 @@
-import {PRESETS,CONTROLS,validatePatch,serializePatch,parsePatch,trajectory} from './engine.js';
+import {PRESETS,CONTROLS,EngineSynth,validatePatch,serializePatch,parsePatch,trajectory} from './engine.js';
 const $=id=>document.getElementById(id);
 const STORAGE='elston-ignition-patch-v1';
 let patch={...PRESETS[0].patch}, presetId=PRESETS[0].id, patchName=PRESETS[0].name;
-let context=null, node=null, gain=null, analyser=null, busy=false, running=false, muted=false;
+let context=null, node=null, gain=null, analyser=null, compatibilitySynth=null, busy=false, running=false, muted=false;
 let held=false, revStart=null, lastSent=0, currentRPM=0, frame=0, worker=null, workerUrl=null, renderTimer=null, previewUrl=null;
 let scopeData=new Float32Array(1024);
 const status=(message,error=false)=>{ $('status').textContent=message; $('status').dataset.error=String(error); };
@@ -12,6 +12,10 @@ function moduleUrl(name) {
   return embedded ? URL.createObjectURL(new Blob([embedded],{type:'text/javascript'})) : name;
 }
 function releaseModule(url) {if(url?.startsWith('blob:'))URL.revokeObjectURL(url);}
+function withDeadline(promise, milliseconds, message) {
+  let timer;
+  return Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(message)),milliseconds);})]).finally(()=>clearTimeout(timer));
+}
 
 for(const preset of PRESETS) {
   const button=document.createElement('button');button.className='preset';button.setAttribute('aria-label',preset.name);button.dataset.id=preset.id;
@@ -63,7 +67,9 @@ function sendLive() {
   let motion={rpm:patch.rpm,load:patch.load};
   if(held)motion={rpm:patch.redline,load:1};
   else if(revStart!==null&&context)motion=trajectory(patch,'rev',Math.min(1,(context.currentTime-revStart)/4));
-  node.port.postMessage({patch:{...patch,...motion}});
+  const livePatch={...patch,...motion};
+  if(compatibilitySynth)compatibilitySynth.set(livePatch);
+  else node.port.postMessage({patch:livePatch});
 }
 function change(key,value) {
   try {
@@ -83,7 +89,7 @@ for(const key of ['mode','firing','stroke','cylinders','idle','redline','seed'])
 $('reset').addEventListener('click',()=>selectPreset(PRESETS.find(p=>p.id===presetId)||PRESETS[0]));
 
 function stateUI() {
-  document.body.dataset.running=String(running);$('ignition').textContent=running?'Stop engine':'Start engine';$('ignition').disabled=busy;
+  document.body.dataset.running=String(running);$('ignition').textContent=busy?(running?'Stopping…':'Starting…'):(running?'Stop engine':'Start engine');$('ignition').disabled=busy;
   $('rev').disabled=!running||busy;$('sweep').disabled=!running||busy;
   $('state-label').textContent=running?'Running':'Engine off';
 }
@@ -95,7 +101,8 @@ async function stop() {
     await new Promise(resolve=>setTimeout(resolve,45));
     await old.close();
   }
-  node=null;gain=null;analyser=null;stateUI();draw();
+  if(node){node.disconnect();if(compatibilitySynth)node.onaudioprocess=null;}
+  node=null;gain=null;analyser=null;compatibilitySynth=null;stateUI();draw();
 }
 async function toggleEngine() {
   if(busy)return;busy=true;stateUI();
@@ -103,17 +110,33 @@ async function toggleEngine() {
     if(running) { await stop();status('Engine stopped. Your patch is saved on this browser.'); }
     else {
       $('preview').pause();
+      status('Starting audio…');
       context=new AudioContext({sampleRate:48000,latencyHint:'interactive'});
-      if(!context.audioWorklet)throw new Error('Open Ignition through its launcher in Chrome.');
-      const workletUrl=moduleUrl('worklet.js');
-      try {await context.audioWorklet.addModule(workletUrl);}
-      finally {releaseModule(workletUrl);}
-      node=new AudioWorkletNode(context,'ignition-engine',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1],processorOptions:{patch}});
+      // Unlock on the click itself, before any asynchronous module loading.
+      const resumeResult=withDeadline(context.resume(),2500,'The browser did not enable audio. Open Launch Ignition.cmd in Chrome and try again.').then(()=>null,error=>error);
+      try {
+        // File-origin worklet loading is inconsistent across embedded browsers.
+        // Use the same DSP through a native callback there; no module fetch needed.
+        if(location.protocol==='file:'||!context.audioWorklet)throw new Error('Use callback audio');
+        const workletUrl=moduleUrl('worklet.js');
+        try {await withDeadline(context.audioWorklet.addModule(workletUrl),1200,'Audio module did not load.');}
+        finally {releaseModule(workletUrl);}
+        node=new AudioWorkletNode(context,'ignition-engine',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1],processorOptions:{patch}});
+        node.port.onmessage=({data})=>{if(data.error)status(data.error,true);else currentRPM=data.rpm;};
+        node.onprocessorerror=()=>{status('The audio engine stopped. Restart the engine to recover.',true);stop().catch(()=>{});};
+      } catch {
+        compatibilitySynth=new EngineSynth(patch,context.sampleRate);
+        node=context.createScriptProcessor(2048,0,1);
+        node.onaudioprocess=event=>{
+          if(!compatibilitySynth)return;
+          compatibilitySynth.process(event.outputBuffer.getChannelData(0));
+          currentRPM=compatibilitySynth.rpm;
+        };
+      }
       gain=context.createGain();gain.gain.value=0;analyser=context.createAnalyser();analyser.fftSize=2048;
       scopeData=new Float32Array(analyser.fftSize);node.connect(gain);gain.connect(analyser);analyser.connect(context.destination);
-      node.port.onmessage=({data})=>{if(data.error)status(data.error,true);else currentRPM=data.rpm;};
-      node.onprocessorerror=()=>{status('The audio engine stopped. Restart the engine to recover.',true);stop().catch(()=>{});};
-      await context.resume();running=true;gain.gain.setTargetAtTime(muted?0:Number($('volume').value),context.currentTime,.035);
+      const resumeError=await resumeResult;if(resumeError)throw resumeError;
+      running=true;gain.gain.setTargetAtTime(muted?0:Number($('volume').value),context.currentTime,.035);
       status('Engine running. Hold to rev, or shape the sound live.');frame=requestAnimationFrame(animate);
     }
   } catch(error) { await stop();status(`Could not start audio: ${error.message}`,true); }

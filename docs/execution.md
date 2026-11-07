@@ -19,3 +19,7 @@ Audio validation establishes a real browser signal and valid exports, not subjec
 ## Follow-up: Start engine did nothing
 
 User opened the raw web/index.html on disk; tab inventory confirmed a file URL and no server listener. External ES module loading from that context was the failure. Added a generated standalone HTML and a file-entry redirect; same source synthesizer, Blob modules, and no server required. New regression began with the missing-standalone assertion failing, then passed live-audio/render/shutdown checks with the artifact served alone and all asset requests unavailable. Existing DSP and full modular-browser regression suites rerun. Requested direct-file confirmation from Luke because the browser tool cannot inspect file URLs.
+
+## Follow-up: file preview still remained at zero RPM
+
+Reproduced a working HTTP launch in the actual in-app browser (950 RPM, nonzero meter), retaining the file-origin exception as unknown rather than claiming to have inspected it. Added a deterministic fallback for file contexts/failed worklet loading, immediate user-gesture resume, bounded startup, and visible error location. Regression with rejected worklet load failed first, passed after implementation; stuck resume also returns to an enabled Start button. All existing checks passed. Refreshed the live in-app tab, preserved the user's patch (1,190 RPM / 68% load) and monitor setting (35%), observed running at 1,190 RPM and -21.3 dBFS. Asked whether the user hears it and wants the intentional local server left running, in light of the explicit cleanup rule.

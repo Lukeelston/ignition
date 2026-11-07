@@ -6,6 +6,8 @@
 <style>:root{color-scheme:light;--navy:#172d3b;--ink:#243b48;--muted:#60727c;--silver:#e9edf0;--paper:#fafbf9;--blue:#28758a;--yellow:#f5cc4e;--red:#cb493d;--line:#cbd4d9;font-family:'Segoe UI',sans-serif;font-synthesis:none}
 *{box-sizing:border-box}body{margin:0;background:var(--silver);color:var(--ink)}button,input,select{font:inherit}button,a,input,select{-webkit-tap-highlight-color:transparent}button{cursor:pointer}button:disabled{cursor:default;opacity:.45}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--blue);outline-offset:4px}button{border:1px solid var(--line);border-radius:5px;padding:10px 15px;background:var(--paper);color:var(--ink);font-size:13px;font-weight:600;transition:background .15s}button:hover:not(:disabled){background:#dce7ec}h1,h2,h3,p{margin:0}h1,h2,h3,.rpm-readout{font-family:Bahnschrift,'Arial Narrow',sans-serif;font-weight:600}.masthead{background:var(--navy);color:#fff;display:flex;align-items:center;gap:32px;padding:25px max(32px,calc((100vw - 1380px)/2));border-bottom:4px solid var(--yellow)}.identity{display:flex;align-items:center;gap:14px}.identity svg{width:37px;height:37px;stroke:var(--yellow);fill:none;stroke-width:2}.identity h1{font-size:38px;line-height:1;letter-spacing:-1px}.identity span{color:#a9bdc9;font-size:11px}.masthead-note{border-left:1px solid #46606e;padding-left:30px;font-size:14px}.masthead-note span{display:block;color:#a9bdc9;font-size:12px;margin-top:5px}.local-badge{margin-left:auto;font-size:12px;color:#c2d5dd;white-space:nowrap}.local-badge i{display:inline-block;width:6px;height:6px;border-radius:50%;background:#87b7bf;margin-right:7px}main{max-width:1440px;padding:28px 32px 0;margin:auto}.section-line{display:flex;gap:20px;align-items:center;margin-bottom:14px}.section-line h2{font-size:18px}.section-line>span{font-size:12px;color:var(--muted)}.presets{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-bottom:24px}.preset{padding:12px 11px;text-align:left;background:#f4f6f5;min-height:68px;border-bottom:3px solid transparent}.preset span{display:block;font-weight:400;font-size:10px;color:var(--muted);margin-top:7px}.preset[aria-pressed=true]{background:var(--navy);border-color:var(--navy);border-bottom-color:var(--yellow);color:white}.preset[aria-pressed=true] span{color:#b7cbd5}.preset:hover:not(:disabled)[aria-pressed=true]{background:#284654}.workbench{display:grid;grid-template-columns:minmax(0,.94fr) minmax(0,1.12fr);gap:22px}.dyno{background:var(--navy);color:#e4edf1;border-radius:10px;padding:25px 26px 21px;box-shadow:0 4px 9px #172d3b16;align-self:start}.bench-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.engine-label{font-size:11px;color:#a3c4d4}.bench-heading h2{font-size:25px;margin-top:3px}.state{font-size:11px;display:flex;align-items:center;gap:7px;white-space:nowrap;color:#aec2cc}.state i{width:7px;height:7px;border-radius:50%;background:#70858e}body[data-running=true] .state i{background:var(--yellow);box-shadow:0 0 10px #f5cc4e44}.preset-note{font-size:12px;line-height:1.5;color:#a9c0cc;min-height:36px;max-width:48ch;margin-top:10px}.dial-wrap{max-width:440px;margin:0 auto -8px}.tachometer{width:100%;display:block;overflow:visible}.rpm-readout{font-size:49px;fill:#edf5f5;font-variant-numeric:tabular-nums;letter-spacing:-1px}.dial-unit{fill:#b0c6d0;font-size:11px;letter-spacing:2px}.dial-caption{fill:#9db9c7;font-size:11px}.tick-label{fill:#c6d8df;font:12px Bahnschrift,sans-serif}.live-controls{padding:2px 2px 10px}.slider-label{display:flex;justify-content:space-between;font-size:12px;align-items:center}.slider-label output{font-variant-numeric:tabular-nums;font-family:Bahnschrift,sans-serif;font-size:15px;color:var(--yellow)}input[type=range]{appearance:none;width:100%;height:25px;background:transparent;cursor:pointer;margin:4px 0 11px;padding:0;border:0}input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:4px;background:#c1cdd3}input[type=range]::-webkit-slider-thumb{appearance:none;width:14px;height:14px;border:3px solid var(--blue);background:var(--paper);border-radius:50%;margin-top:-5px}input[type=range]::-moz-range-track{height:4px;background:#c1cdd3}input[type=range]::-moz-range-thumb{width:9px;height:9px;border:3px solid var(--blue);border-radius:50%;background:white}.dyno input[type=range]::-webkit-slider-runnable-track{background:#4b6573}.dyno input[type=range]::-webkit-slider-thumb{border-color:var(--yellow);background:var(--navy)}.dyno :focus-visible{outline-color:var(--yellow)}.transport{display:grid;grid-template-columns:1.25fr 1fr .85fr;gap:7px}.transport button{padding:13px 7px;font-size:12px;border-color:#4e6977;background:#263f4f;color:#e6eff3}.transport button:hover:not(:disabled){background:#385565}.transport .start{background:var(--yellow);border-color:var(--yellow);color:var(--navy)}.transport .start:hover:not(:disabled){background:#f9dd81}body[data-running=true] .transport .start{background:#dde6eb;border-color:#dde6eb}.transport .rev[aria-pressed=true]{background:var(--yellow);color:var(--navy)}#rev{touch-action:none;user-select:none}.monitor{display:flex;align-items:center;gap:12px;margin-top:17px;font-size:11px;color:#bbd0da}.monitor input{flex:1;width:50px;margin:0}.monitor output{min-width:31px;font-variant-numeric:tabular-nums}.monitor button{font-size:11px;padding:5px 8px;color:#c1d2db;background:transparent;border-color:#4b6573}.monitor button[aria-pressed=true]{color:var(--yellow);border-color:var(--yellow)}.scope-box{margin-top:20px;border-top:1px solid #3a5361;padding-top:12px}.scope-box>div{display:flex;justify-content:space-between;font-size:10px;color:#95b1c0}#scope{width:100%;height:60px;display:block}.bench-help{color:#95b1c0;font-size:11px;line-height:1.5;max-width:60ch;margin-top:4px}.designer{background:var(--paper);border:1px solid #d4dde1;border-radius:10px;padding:23px 25px}.designer-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}.designer-heading h2{font-size:22px}.text-button{border:0;background:transparent;padding:4px 0;font-weight:400;text-decoration:underline;text-underline-offset:4px;color:var(--muted);font-size:12px}.architecture{display:grid;grid-template-columns:1.4fr .8fr 1.3fr;gap:12px;margin-bottom:24px}label{font-size:11px;color:var(--muted)}select,input[type=number]{display:block;width:100%;border:1px solid #c5d0d6;background:white;color:var(--ink);border-radius:4px;padding:8px 7px;font-size:12px;margin-top:6px;height:35px;min-width:0}select{padding-right:22px}.control-group{border-top:1px solid #d7dfe2;padding-top:15px;margin-top:7px}.group-heading{display:flex;align-items:center;gap:9px;margin-bottom:9px}.group-heading h3{font-size:15px}.group-heading span{color:var(--muted);font-size:10px;margin-left:auto}.control-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px 26px}.sound-control{min-width:0}.sound-control .slider-label{color:var(--ink);font-size:12px}.sound-control output{color:var(--blue);font-size:12px}.sound-control input{margin:3px 0 9px}.patch-row{display:flex;justify-content:space-between;align-items:end;gap:18px;border-top:1px solid #d7dfe2;margin-top:8px;padding-top:17px}.seed-label{max-width:124px}.patch-actions{display:flex;gap:7px}.patch-actions button{padding:9px 11px;font-size:12px}.export-bench{background:#dbe4e8;border:1px solid #c3d0d7;border-radius:8px;margin-top:22px;padding:22px 25px;display:flex;align-items:center;gap:25px;flex-wrap:wrap}.export-title{flex:1;min-width:220px}.export-title h2{font-size:23px}.export-title p{font-size:12px;color:var(--muted);line-height:1.5;margin:7px 0;max-width:54ch}.export-title>span{font-family:Bahnschrift,sans-serif;font-size:11px;color:#466370}.export-controls{display:flex;align-items:end;gap:12px}.export-controls label:first-child{min-width:170px}.duration-label{width:70px}.render{background:var(--blue);border-color:var(--blue);color:white;min-height:35px;padding:9px 20px;font-size:12px}.render:hover:not(:disabled){background:#1e6277}.render-result{flex-basis:100%;display:flex;align-items:center;gap:18px;border-top:1px solid #bbcbd2;padding-top:16px}.render-result[hidden]{display:none}.render-result audio{height:36px;max-width:100%}.render-result a{color:#1e6277;font-size:12px}.render-result span{font-size:11px;color:var(--muted)}.status-row{display:flex;justify-content:space-between;gap:20px;margin:14px 2px;font-size:12px;color:var(--muted);min-height:18px}.status-row #status[data-error=true]{color:#a53229}#patch-state{white-space:nowrap;font-size:11px}footer{display:flex;max-width:1440px;padding:20px 34px 25px;margin:auto;gap:25px;align-items:center;font-size:11px;color:var(--muted)}footer>span:nth-child(2){margin-left:auto}.footer-separator{color:#94a8b2;padding:0 9px}
 .dyno label{color:#bbd0da}
+.dyno #status{font-size:12px;line-height:1.5;color:#bbd0da;margin-top:12px;min-height:36px}
+.dyno #status[data-error=true]{color:#ffb7a8}
 @media(min-width:1600px){main{padding-top:35px}.workbench{gap:26px}.dyno{padding:28px 30px}.designer{padding:27px 30px}}
 @media(max-width:1100px){.presets{grid-template-columns:repeat(4,1fr)}.workbench{gap:15px;grid-template-columns:1fr 1.05fr}.dyno,.designer{padding:20px 18px}.architecture{grid-template-columns:1fr 1fr}.control-grid{gap:0 16px}.patch-row{flex-wrap:wrap}.masthead{padding:22px 25px}.masthead-note{display:none}.export-controls{flex:1}.export-controls label:first-child{flex:1}}
 @media(max-width:760px){main{padding:20px 16px 0}.masthead{padding:19px 20px}.identity h1{font-size:32px}.local-badge{font-size:10px}.presets{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-bottom:17px}.preset{font-size:11px;padding:9px 7px;min-height:66px}.preset span{font-size:9px}.section-line h2{font-size:16px}.section-line>span{font-size:11px}.workbench{grid-template-columns:1fr}.dyno{padding:22px}.dial-wrap{max-width:380px}.designer{padding:23px 20px}.architecture{grid-template-columns:1.3fr .8fr 1.2fr}.export-bench{padding:20px;gap:18px}.export-title h2{font-size:21px}.export-controls{flex-wrap:wrap;gap:10px}.export-controls label:first-child{min-width:130px}.export-controls .render{width:100%;margin-top:3px;min-height:42px}.render-result{flex-wrap:wrap;gap:12px}.render-result audio{width:100%}.status-row{display:block;font-size:11px}#patch-state{display:block;margin-top:7px}footer{padding:15px 18px 24px;flex-wrap:wrap;gap:12px}footer>span:nth-child(2){order:3;flex-basis:100%;margin:0;font-size:10px}footer button{margin-left:auto}}
@@ -33,6 +35,7 @@
         <label class="slider-label" for="load"><span>Engine load</span><output id="load-value">28%</output></label><input type="range" id="load" min="0" max="1" step=".01" value=".28">
       </div>
       <div class="transport"><button id="ignition" class="start">Start engine</button><button id="rev" class="rev" aria-pressed="false" disabled>Hold to rev</button><button id="sweep" class="sweep" disabled>Rev once</button></div>
+      <p id="status" role="status" aria-live="polite">Ready. Start an engine or render a sound.</p>
       <div class="monitor"><label for="volume">Monitor</label><input id="volume" aria-label="Monitor volume" type="range" min="0" max=".8" step=".01" value=".25"><output id="volume-value">25%</output><button id="mute" aria-pressed="false" title="Mute live monitoring">Mute</button></div>
       <div class="scope-box"><div><span>Output waveform</span><span id="output-level">— dBFS</span></div><canvas id="scope" width="700" height="130" aria-label="Live output waveform"></canvas></div>
       <p class="bench-help">Hold the rev button with your mouse, touch, Space or Enter. Release to return to your target RPM.</p>
@@ -56,7 +59,7 @@
     <div class="export-controls"><label>Motion<select id="motion"><option value="steady">Steady RPM</option><option value="rev" selected>Rev up &amp; release</option><option value="sweep">Idle to redline</option><option value="gears">Through the gears</option></select></label><label class="duration-label">Seconds<input id="duration" type="number" min="2" max="30" value="8" step="1"></label><button id="render" class="render">Render WAV</button></div>
     <div class="render-result" id="render-result" hidden><audio id="preview" controls aria-label="Last rendered engine sound"></audio><a id="download" download>Download again</a><span id="render-info"></span></div>
   </section>
-  <div class="status-row"><p id="status" role="status" aria-live="polite">Ready. Start an engine or render a sound.</p><span id="patch-state">Big-block V8</span></div>
+  <div class="status-row"><span id="patch-state">Big-block V8</span></div>
 </main>
 <footer><span>Ignition 0.1 <span class="footer-separator">/</span> Syrinx’s louder sibling.</span><span>Procedural sound design. No recordings or accounts.</span><button id="quit" class="text-button">Quit app</button></footer>
 <script>
@@ -248,7 +251,7 @@ function encodeWav(samples, sampleRate=48000) {
 const $=id=>document.getElementById(id);
 const STORAGE='elston-ignition-patch-v1';
 let patch={...PRESETS[0].patch}, presetId=PRESETS[0].id, patchName=PRESETS[0].name;
-let context=null, node=null, gain=null, analyser=null, busy=false, running=false, muted=false;
+let context=null, node=null, gain=null, analyser=null, compatibilitySynth=null, busy=false, running=false, muted=false;
 let held=false, revStart=null, lastSent=0, currentRPM=0, frame=0, worker=null, workerUrl=null, renderTimer=null, previewUrl=null;
 let scopeData=new Float32Array(1024);
 const status=(message,error=false)=>{ $('status').textContent=message; $('status').dataset.error=String(error); };
@@ -258,6 +261,10 @@ function moduleUrl(name) {
   return embedded ? URL.createObjectURL(new Blob([embedded],{type:'text/javascript'})) : name;
 }
 function releaseModule(url) {if(url?.startsWith('blob:'))URL.revokeObjectURL(url);}
+function withDeadline(promise, milliseconds, message) {
+  let timer;
+  return Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(message)),milliseconds);})]).finally(()=>clearTimeout(timer));
+}
 
 for(const preset of PRESETS) {
   const button=document.createElement('button');button.className='preset';button.setAttribute('aria-label',preset.name);button.dataset.id=preset.id;
@@ -309,7 +316,9 @@ function sendLive() {
   let motion={rpm:patch.rpm,load:patch.load};
   if(held)motion={rpm:patch.redline,load:1};
   else if(revStart!==null&&context)motion=trajectory(patch,'rev',Math.min(1,(context.currentTime-revStart)/4));
-  node.port.postMessage({patch:{...patch,...motion}});
+  const livePatch={...patch,...motion};
+  if(compatibilitySynth)compatibilitySynth.set(livePatch);
+  else node.port.postMessage({patch:livePatch});
 }
 function change(key,value) {
   try {
@@ -329,7 +338,7 @@ for(const key of ['mode','firing','stroke','cylinders','idle','redline','seed'])
 $('reset').addEventListener('click',()=>selectPreset(PRESETS.find(p=>p.id===presetId)||PRESETS[0]));
 
 function stateUI() {
-  document.body.dataset.running=String(running);$('ignition').textContent=running?'Stop engine':'Start engine';$('ignition').disabled=busy;
+  document.body.dataset.running=String(running);$('ignition').textContent=busy?(running?'Stopping…':'Starting…'):(running?'Stop engine':'Start engine');$('ignition').disabled=busy;
   $('rev').disabled=!running||busy;$('sweep').disabled=!running||busy;
   $('state-label').textContent=running?'Running':'Engine off';
 }
@@ -341,7 +350,8 @@ async function stop() {
     await new Promise(resolve=>setTimeout(resolve,45));
     await old.close();
   }
-  node=null;gain=null;analyser=null;stateUI();draw();
+  if(node){node.disconnect();if(compatibilitySynth)node.onaudioprocess=null;}
+  node=null;gain=null;analyser=null;compatibilitySynth=null;stateUI();draw();
 }
 async function toggleEngine() {
   if(busy)return;busy=true;stateUI();
@@ -349,17 +359,33 @@ async function toggleEngine() {
     if(running) { await stop();status('Engine stopped. Your patch is saved on this browser.'); }
     else {
       $('preview').pause();
+      status('Starting audio…');
       context=new AudioContext({sampleRate:48000,latencyHint:'interactive'});
-      if(!context.audioWorklet)throw new Error('Open Ignition through its launcher in Chrome.');
-      const workletUrl=moduleUrl('worklet.js');
-      try {await context.audioWorklet.addModule(workletUrl);}
-      finally {releaseModule(workletUrl);}
-      node=new AudioWorkletNode(context,'ignition-engine',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1],processorOptions:{patch}});
+      // Unlock on the click itself, before any asynchronous module loading.
+      const resumeResult=withDeadline(context.resume(),2500,'The browser did not enable audio. Open Launch Ignition.cmd in Chrome and try again.').then(()=>null,error=>error);
+      try {
+        // File-origin worklet loading is inconsistent across embedded browsers.
+        // Use the same DSP through a native callback there; no module fetch needed.
+        if(location.protocol==='file:'||!context.audioWorklet)throw new Error('Use callback audio');
+        const workletUrl=moduleUrl('worklet.js');
+        try {await withDeadline(context.audioWorklet.addModule(workletUrl),1200,'Audio module did not load.');}
+        finally {releaseModule(workletUrl);}
+        node=new AudioWorkletNode(context,'ignition-engine',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1],processorOptions:{patch}});
+        node.port.onmessage=({data})=>{if(data.error)status(data.error,true);else currentRPM=data.rpm;};
+        node.onprocessorerror=()=>{status('The audio engine stopped. Restart the engine to recover.',true);stop().catch(()=>{});};
+      } catch {
+        compatibilitySynth=new EngineSynth(patch,context.sampleRate);
+        node=context.createScriptProcessor(2048,0,1);
+        node.onaudioprocess=event=>{
+          if(!compatibilitySynth)return;
+          compatibilitySynth.process(event.outputBuffer.getChannelData(0));
+          currentRPM=compatibilitySynth.rpm;
+        };
+      }
       gain=context.createGain();gain.gain.value=0;analyser=context.createAnalyser();analyser.fftSize=2048;
       scopeData=new Float32Array(analyser.fftSize);node.connect(gain);gain.connect(analyser);analyser.connect(context.destination);
-      node.port.onmessage=({data})=>{if(data.error)status(data.error,true);else currentRPM=data.rpm;};
-      node.onprocessorerror=()=>{status('The audio engine stopped. Restart the engine to recover.',true);stop().catch(()=>{});};
-      await context.resume();running=true;gain.gain.setTargetAtTime(muted?0:Number($('volume').value),context.currentTime,.035);
+      const resumeError=await resumeResult;if(resumeError)throw resumeError;
+      running=true;gain.gain.setTargetAtTime(muted?0:Number($('volume').value),context.currentTime,.035);
       status('Engine running. Hold to rev, or shape the sound live.');frame=requestAnimationFrame(animate);
     }
   } catch(error) { await stop();status(`Could not start audio: ${error.message}`,true); }

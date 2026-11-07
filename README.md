@@ -33,11 +33,13 @@ These are synthesized sound-design starting points, not recordings of specific v
 
 - `web/engine.js`: deterministic DSP, presets, patch format, motion curves and WAV encoder.
 - `web/worklet.js`: low-latency live synthesis using [AudioWorklet](https://developer.mozilla.org/en-US/docs/Web/API/AudioWorklet).
+- Direct-file contexts and failed worklet loads use the same DSP through a native audio callback. Audio is resumed immediately on the click; startup failures time out and appear beside the ignition button.
 - `web/render-worker.js`: offline render using the same DSP, away from UI interaction.
 - `serve.py`: Python standard-library local server and Chrome launcher.
 - `tools/check_browser.py`: actual Chrome integration checks (requires Playwright for development only).
 - `tools/build_standalone.py`: rebuild `Ignition.html` after changing any web source.
 - `tools/check_standalone.py`: run the standalone bundle in Chrome with no adjacent assets served; checks live audio, WAV export and shutdown.
+- `tools/check_audio_startup.py`: exercise actual audio with worklet loading rejected, plus recovery from an audio-resume promise that never resolves.
 - `tools/render_samples.mjs`: regenerate the V8 and ion-drive listening samples.
 - `docs/verification.md`: measured results and limitations.
 
@@ -46,6 +48,7 @@ node --test tests/engine.test.mjs
 python tools/check_browser.py
 python tools/build_standalone.py
 python tools/check_standalone.py
+python tools/check_audio_startup.py
 node tools/render_samples.mjs
 ```
 
