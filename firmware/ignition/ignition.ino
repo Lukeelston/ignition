@@ -5,14 +5,15 @@
 #include "core.h"
 #include "presets.h"
 #include "board_config.h"
+#include "test_tone.h"
 
 #if !defined(CONFIG_IDF_TARGET_ESP32S3)
 #error This wiring profile is for ESP32-S3 only.
 #endif
 
 using namespace ignition;
-struct AudioCommand {uint32_t time;size_t preset;float rpm,load,volume;};
-struct AudioStats {uint32_t blocks=0,renderMaxUs=0,renderLate=0,writeErrors=0;};
+struct AudioCommand {uint32_t time;size_t preset;float rpm,load,volume;uint32_t toneRequest=0;};
+struct AudioStats {uint32_t blocks=0,renderMaxUs=0,renderLate=0,writeErrors=0;bool toneActive=false;};
 static QueueHandle_t commands=nullptr,statistics=nullptr;
 static i2s_chan_handle_t tx=nullptr;
 static Controller controller(board::ignitionIsButton);
@@ -38,13 +39,18 @@ static void report(const char* format,...){
 static void audioTask(void*) {
   float mono[board::blockFrames];int32_t stereo[board::blockFrames*2];
   AudioCommand command{};AudioStats stats;size_t lastPreset=kPresetCount;
+  TestTone tone;uint32_t lastToneRequest=0;
   for(;;){
     xQueuePeek(commands,&command,0);
     const uint32_t started=micros();
     if(command.preset!=lastPreset){lastPreset=command.preset;synth.setPatch(kPatches[lastPreset]);}
     // If the input task stops publishing, ramp to silence rather than hold a rev.
     const bool fresh=uint32_t(millis()-command.time)<250;
+    if(command.toneRequest!=lastToneRequest){lastToneRequest=command.toneRequest;tone.start();}
+    if(!fresh||stats.writeErrors)tone.stop();
     synth.process(mono,board::blockFrames,command.rpm,command.load,fresh&&!stats.writeErrors?command.volume:0);
+    if(tone.active())for(int i=0;i<board::blockFrames;i++)mono[i]+=tone.next();
+    stats.toneActive=tone.active();
     for(int i=0;i<board::blockFrames;i++)stereo[2*i]=stereo[2*i+1]=pcm32(mono[i]);
     const uint32_t elapsed=micros()-started;
     stats.renderMaxUs=std::max(stats.renderMaxUs,elapsed);
@@ -89,17 +95,23 @@ void setup(){
   controller.drive.configure(kPatches[0]);
   ready=beginAudio();
   rgbLedWrite(board::rgb,ready?0:20,0,ready?5:0);
-  report("Ignition handheld 0.3 | ESP32-S3 | detected_flash=%u | PSRAM unused | audio=%s\n",ESP.getFlashChipSize(),ready?"ready":"FAILED");
+  report("Ignition handheld 0.4 | ESP32-S3 | detected_flash=%u | PSRAM unused | audio=%s | sample_rate=%u\n",ESP.getFlashChipSize(),ready?"ready":"FAILED",sampleRate);
   report("Thumbstick: rest=%d full=%d dead_zone=%d. USB/UART: 115200.\n",board::throttleRest,board::throttleFull,board::throttleDeadZone);
   report(board::ignitionIsButton?"Centre stick. Release ignition button, then tap to start/stop.\n":"Centre stick. Switch ignition OFF, then ON. No automatic boot sound.\n");
+  report("USB command t: eight quiet diagnostic beeps, then engine stays off.\n");
 }
 
 void loop(){
   static TickType_t wake=xTaskGetTickCount();
   static uint32_t lastReport=0,lastLed=0;
+  static uint32_t toneRequest=0,toneStarted=0;
   static AudioStats stats;
   const uint32_t now=millis();
   if(!ready){if(now-lastLed>=250){lastLed=now;rgbLedWrite(board::rgb,(now/250)%2?20:0,0,0);}delay(10);return;}
+#if ARDUINO_USB_CDC_ON_BOOT
+  for(int n=0;n<16&&Serial.available();n++)if(Serial.read()=='t'){++toneRequest;toneStarted=now;}
+#endif
+  const bool testing=toneRequest&&uint32_t(now-toneStarted)<TestTone::totalFrames*1000u/sampleRate+250;
   throttleRaw=analogRead(board::throttle);
   const float throttle=normalizeThrottle(throttleRaw,board::throttleRest,board::throttleFull,board::throttleDeadZone);
   filteredThrottle+=(throttle-filteredThrottle)*.45f;
@@ -109,8 +121,8 @@ void loop(){
   controller.update(now,inputs);
   if(controller.nextCharacter){currentPreset=(currentPreset+1)%kPresetCount;controller.drive.configure(kPatches[currentPreset]);}
   xQueuePeek(statistics,&stats,0);
-  if(stats.writeErrors)controller.drive.stop();
-  const AudioCommand command{now,currentPreset,controller.drive.rpm,controller.drive.load,controller.drive.state!=Drive::Off?board::volume:0};
+  if(stats.writeErrors||testing)controller.drive.stop();
+  const AudioCommand command{now,currentPreset,controller.drive.rpm,controller.drive.load,controller.drive.state!=Drive::Off?board::volume:0,toneRequest};
   xQueueOverwrite(commands,&command);
   if(now-lastLed>=50){
     lastLed=now;
@@ -122,7 +134,7 @@ void loop(){
   }
   if(now-lastReport>=1000){
     lastReport=now;
-    report("preset=%s gear=%d rpm=%.0f speed=%.1f throttle=%.2f adc=%d key=%d state=%d button_mode=%d volume=%.2f blocks=%u render_max_us=%u render_late=%u write_errors=%u heap=%u\n",kPresetNames[currentPreset],controller.drive.gear,controller.drive.rpm,controller.drive.speed,inputs.throttle,throttleRaw,inputs.ignition,int(controller.drive.state),board::ignitionIsButton,board::volume,stats.blocks,stats.renderMaxUs,stats.renderLate,stats.writeErrors,ESP.getFreeHeap());
+    report("preset=%s gear=%d rpm=%.0f speed=%.1f throttle=%.2f adc=%d key=%d state=%d button_mode=%d volume=%.2f tone=%d tone_request=%u blocks=%u render_max_us=%u render_late=%u write_errors=%u heap=%u\n",kPresetNames[currentPreset],controller.drive.gear,controller.drive.rpm,controller.drive.speed,inputs.throttle,throttleRaw,inputs.ignition,int(controller.drive.state),board::ignitionIsButton,board::volume,stats.toneActive,toneRequest,stats.blocks,stats.renderMaxUs,stats.renderLate,stats.writeErrors,ESP.getFreeHeap());
   }
   vTaskDelayUntil(&wake,pdMS_TO_TICKS(10));
 }

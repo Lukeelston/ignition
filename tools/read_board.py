@@ -1,4 +1,4 @@
-"""Bounded, read-only telemetry capture from an explicitly identified native-USB S3."""
+"""Bounded telemetry capture from an exact native-USB S3; optional quiet tone test."""
 import argparse
 from datetime import datetime, timezone
 import json
@@ -30,6 +30,7 @@ def main():
     parser.add_argument('--serial', required=True, help='Exact USB serial/MAC of the toy board')
     parser.add_argument('--seconds', type=float, default=8)
     parser.add_argument('--live', action='store_true', help='Print controls as each sample arrives')
+    parser.add_argument('--tone', action='store_true', help='Stop engine and request eight quiet diagnostic beeps')
     args = parser.parse_args()
     if not 1 <= args.seconds <= 180:
         parser.error('--seconds must be 1 through 180')
@@ -39,7 +40,7 @@ def main():
     if len(matches) != 1:
         raise SystemExit(f'Expected one matching native-USB S3; found {len(matches)}. No port opened.')
     port = matches[0]
-    reader = serial.Serial(port=None, baudrate=115200, timeout=.25)
+    reader = serial.Serial(port=None, baudrate=115200, timeout=.25, write_timeout=.5)
     reader.dtr = False
     reader.rts = False
     reader.port = port.device
@@ -47,6 +48,9 @@ def main():
     pending = b''
     try:
         reader.open()
+        if args.tone:
+            if reader.write(b't') != 1:
+                raise RuntimeError('Diagnostic command was not written completely')
         started = time.monotonic()
         deadline = started + args.seconds
         if args.live:
@@ -60,7 +64,7 @@ def main():
                     records.append(sample)
                     if args.live:
                         controls = ' '.join(f'{key}={sample.get(key, "?")}'
-                                            for key in ['key', 'state', 'button_mode', 'adc', 'throttle', 'rpm', 'write_errors'])
+                                            for key in ['key', 'state', 'button_mode', 'adc', 'throttle', 'rpm', 'tone', 'write_errors'])
                         print(f't={time.monotonic()-started:.1f}s {controls}', flush=True)
             if len(pending) > 4096:
                 pending = b''
@@ -71,7 +75,7 @@ def main():
     timestamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     destination = evidence / f'board-{timestamp}.json'
     result = {'port': port.device, 'serial': port.serial_number,
-              'seconds': args.seconds, 'records': records, 'serial_closed': True}
+              'seconds': args.seconds, 'tone_requested': args.tone, 'records': records, 'serial_closed': True}
     destination.write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
     summary = {key: value for key, value in result.items() if key != 'records'}
     summary.update(samples=len(records), evidence=str(destination))

@@ -49,3 +49,9 @@ Luke clarified that GPIO8 is wired to a simple momentary button on a breadboard,
 ## Direct thumbstick wiring and speaker comparison — 2026-11-06
 
 Luke found and removed the mismatched terminal adapter. Supplied a direct-pin chart with thumbstick SW moved to GPIO8 for start/stop and GPIO7 empty; this needs no behavioral firmware change. He then confirmed audible engine sound through an unmarked miniature replacement speaker, with buzz/rattle. Checked live renderer/I²S telemetry, then flashed a single-variable gain reduction (0.22 to 0.08) and verified the new value on the booted board. Clean playback has not been confirmed. Luke found a 5 W / 4 Ω TV speaker; confirmed electrical compatibility with the MAX98357A and advised a powered-down swap after the upload finished. The speaker comparison is pending.
+
+## Distorted diagnostic beeps — 2026-11-06
+
+Crackling persisted. Added a bounded, quiet sine test triggered explicitly over the identified toy's USB port, keeping its I²S rate/format/buffers unchanged. Native tests, target compilation, source review and flash digest checks passed; live telemetry confirms the test started and ended without reported render overruns/write errors. Luke heard the beeps and called them “horrendous.” Requested the physical amp supply and speaker-output connections, with power off, to investigate the shared output path. Engine playback is still faulty; the diagnostic did not fix it.
+
+Luke confirmed ESP 5 V feeds amp VIN and the speaker uses only SPK+/−. Repeated the same beeps at Iris's 16 kHz rate, keeping the other I²S settings unchanged; tests/build/readback and bounded live capture passed, but Luke still heard severe distortion. Board/source temporarily remain at 16 kHz with engine off after the test. Next step is a wiring photo/inspection; neither sample-rate trial establishes a specific hardware or driver fault.

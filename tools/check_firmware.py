@@ -26,7 +26,7 @@ report['parity'] = json.loads(parity.stdout)
 with wave.open(str(OUT / 'firmware-v8-host.wav'), 'wb') as wav:
     wav.setnchannels(1)
     wav.setsampwidth(2)
-    wav.setframerate(32000)
+    wav.setframerate(report['sample_rate'])
     wav.writeframes((OUT / 'firmware-v8.pcm').read_bytes())
 report['hardware_verified'] = False
 (OUT / 'firmware-host-report.json').write_text(json.dumps(report, indent=2))

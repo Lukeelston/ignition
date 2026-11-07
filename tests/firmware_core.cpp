@@ -1,5 +1,6 @@
 #include "../firmware/ignition/core.h"
 #include "../firmware/ignition/presets.h"
+#include "../firmware/ignition/test_tone.h"
 #include <cassert>
 #include <cstdio>
 #include <fstream>
@@ -11,6 +12,26 @@ static void advance(Drive& d,int ticks,float throttle=0,bool brake=false,bool bo
 }
 int main(int argc,char** argv) {
   assert(argc==2);
+  // Diagnostic signal: eight finite, low-level 660 Hz beeps, soft edges and
+  // exact silence between notes and after the bounded test completes.
+  TestTone tone;assert(!tone.active()&&tone.next()==0);tone.start();
+  int crossings=0;float previous=0,tonePeak=0;double toneEnergy=0;
+  for(uint32_t i=0;i<TestTone::totalFrames;i++){
+    assert(tone.active());const float value=tone.next();
+    assert(std::isfinite(value)&&std::fabs(value)<=.023438f);
+    assert(std::fabs(value-previous)<.0031f*32000/sampleRate);
+    if(i<TestTone::leadFrames)assert(value==0);
+    else {
+      const uint32_t position=(i-TestTone::leadFrames)%TestTone::periodFrames;
+      if(position>=sampleRate)assert(value==0);
+      if(value>0&&previous<=0)crossings++;
+    }
+    previous=value;tonePeak=std::max(tonePeak,std::fabs(value));toneEnergy+=value*value;
+  }
+  assert(!tone.active()&&tone.next()==0&&tonePeak>.023f&&toneEnergy/TestTone::totalFrames>.00015);
+  assert(crossings==8*660);
+  tone.start();assert(tone.active()&&tone.next()==0);
+  tone.stop();assert(!tone.active()&&tone.next()==0);
   Drive d;d.configure(kPatches[0]);assert(d.rpm==0);d.start();
   advance(d,100);assert(d.state==Drive::Running);assert(std::fabs(d.rpm-750)<2);
   advance(d,300,1);assert(d.rpm>6000&&d.speed==0);
@@ -124,7 +145,7 @@ int main(int argc,char** argv) {
   assert(pcm32(0)==0&&pcm32(-.5f)<0&&pcm32(.5f)>0);
   assert(pcm32(-.5f)==-pcm32(.5f));
   Patch firing=kPatches[0];firing.rpm=3000;firing.roughness=0;firing.firing=Firing::Even;
-  Synth pulse(firing);for(int i=0;i<250;i++)pulse.process(buffer,128,3000,.5f,1);
+  Synth pulse(firing);for(uint32_t i=0;i<sampleRate;i+=128)pulse.process(buffer,std::min(128u,sampleRate-i),3000,.5f,1);
   assert(pulse.firings>=199&&pulse.firings<=201);
   // A host trace is compared against the independently exercised browser model.
   std::ofstream trace(std::string(argv[1])+"/firmware-drive.csv");
@@ -135,5 +156,5 @@ int main(int argc,char** argv) {
     parity.step(.01f,t,i>=1600,i>=1100&&i<1400);
     if(i%100==99)trace<<i<<","<<parity.rpm<<","<<parity.speed<<","<<parity.load<<","<<parity.gear<<"\n";
   }
-  std::printf("{\"passed\":true,\"patches\":%zu,\"peak\":%.5f,\"rms\":%.5f,\"synth_bytes\":%zu}\n",kPresetCount,peak,std::sqrt(totalEnergy/(kPresetCount*500*128)),sizeof(Synth));
+  std::printf("{\"passed\":true,\"sample_rate\":%u,\"patches\":%zu,\"peak\":%.5f,\"rms\":%.5f,\"synth_bytes\":%zu}\n",sampleRate,kPresetCount,peak,std::sqrt(totalEnergy/(kPresetCount*500*128)),sizeof(Synth));
 }

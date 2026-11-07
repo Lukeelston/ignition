@@ -6,7 +6,7 @@
 
 namespace ignition {
 constexpr float tau=6.28318530718f;
-constexpr uint32_t sampleRate=32000;
+constexpr uint32_t sampleRate=16000; // bench comparison with Iris's audio clock
 inline float bounded(float x,float lo,float hi){return std::max(lo,std::min(hi,x));}
 enum class Mode {Combustion,Turbine,Ion};
 enum class Firing {Even,Cross,Uneven};
