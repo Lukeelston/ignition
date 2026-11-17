@@ -6,7 +6,7 @@ A handheld engine toy and sound-design bench alongside Syrinx Studio. Squeeze a 
 
 Double-click **Ignition.html** and open it in Chrome. This self-contained edition includes the UI, synthesizer, worklet and render worker. It needs no server, Python, packages, or adjacent files. Opening `web/index.html` directly forwards to this edition.
 
-**Launch Ignition.cmd** is the alternative server launcher. It starts a local server and opens the modular edition in Chrome. This alternative requires Python 3.11+; there are no packages to install. Python and Chrome are already present on Luke's workstation.
+**Launch Ignition.cmd** is the alternative server launcher. It starts a local server and opens the modular edition in Chrome. This alternative requires Python 3.11+ and Chrome; there are no Python packages to install.
 
 The server edition's normal address is `http://127.0.0.1:8767`. It only listens on this computer. Use **Quit app** in the footer or Ctrl+C in the launcher console when finished. Closing only that edition's browser window leaves the local server running. The standalone HTML has no server to leave behind; Quit app stops its audio, and you can close the tab.
 
@@ -24,7 +24,15 @@ Ignition opens in **Play**, the browser prototype of a handheld toy. **Start eng
 
 **Space** operates the focused trigger; **↑ / ↓** shift and **B** brakes while focus is outside a form input. Mouse and touch controls work too. Releasing, cancelling a pointer, or losing window focus releases momentary controls. Hiding the tab turns toy audio off. **Tune** opens the existing sound-design tools; switching views stops the engine and preserves the patch. Play controls RPM and load dynamically, without overwriting the saved bench settings.
 
-[Handheld layout](docs/handheld.md) records the physical controls. [ESP32-S3 firmware and wiring](firmware/README.md) target the photographed Lonely Binary S3 board, borrowing Iris's MAX98357A amp. The current minimal bench build uses only a spring-centred thumbstick: throttle on GPIO4, click to start/stop on GPIO8. Bypass the terminal adapter whose labels Luke found do not match this board. Firmware is flashed and booting after a verified full-flash backup, and Luke has confirmed audible engine sound. Buzz/rattle with a tiny replacement speaker is under investigation; the installed gain is reduced to 0.08 for a comparison test. See `docs/verification.md`.
+[ESP32-S3 firmware and wiring](firmware/README.md) cover the Lonely Binary S3 board and MAX98357A I²S amplifier. The current bench build uses a single spring-centred thumbstick:
+
+| Connection | Action |
+| --- | --- |
+| VRx → GPIO1 | Right accelerates; left applies proportional brake |
+| VRy → GPIO4 | High direction shifts up; opposite shifts down; re-centre between shifts |
+| SW → GPIO8 | Short click/release starts or stops; hold cycles engine types |
+
+Hold for 0.65 seconds to change engine, then every 0.9 seconds while held. The firmware includes a crank/catch/idle sequence, six gears plus neutral, acceleration-driven texture, and a louder output stage with a soft peak ceiling. The thumbstick runs from 3V3; follow the full wiring guide for amplifier power and audio connections. The guide also records measured calibration and the installed sound settings. [Handheld layout](docs/handheld.md) describes the broader enclosure/control concept; [verification notes](docs/verification.md) distinguish software checks, observed board behavior and listening feedback.
 
 ## Use the bench (Tune)
 
