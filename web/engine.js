@@ -55,6 +55,52 @@ export const PRESETS = Object.freeze([
   preset('freighter','Deep-space hauler','Off-world','An enormous powerplant, slightly overdue for its last service.', {mode:'ion',cylinders:12,firing:'cross',rpm:700,idle:450,redline:5000,body:.95,exhaust:70,rasp:.25,roughness:.65,intake:.4,whine:.26,turbo:.2,response:.15,sub:.9,reactor:.65,modulation:1.8,space:.75}),
 ]);
 
+// Two independent exhaust paths are essential: summing their pulses before
+// resonance/saturation loses the uneven per-bank beat of a crossplane V8.
+// Chevy 1-8-4-3-6-5-7-2, odd cylinders on bank 0, even cylinders on bank 1.
+const V8_BANKS = [0,1,1,0,1,0,0,1];
+class ExhaustResonator {
+  constructor(){this.z1=0;this.z2=0;}
+  tune(hz,q,sr){
+    const w=TAU*Math.min(hz,sr*.2)/sr,alpha=Math.sin(w)/(2*q),a0=1+alpha;
+    this.b=alpha/a0;this.a1=-2*Math.cos(w)/a0;this.a2=(1-alpha)/a0;
+  }
+  next(x){
+    const y=this.b*x+this.z1;
+    this.z1=-this.a1*y+this.z2;this.z2=-this.b*x-this.a2*y;
+    return y;
+  }
+}
+class V8ExhaustBank {
+  constructor(){
+    this.pulse=0;this.edge=0;this.prev=0;this.dc=0;this.mouth=0;
+    this.body=new ExhaustResonator();this.throat=new ExhaustResonator();
+  }
+  tune(p,rpm,sr,detune){
+    // Rounded blowdown gets shorter at speed; fixed pipe resonances stay put.
+    const width=(.0016+p.body*.0018)/(1+rpm/p.redline*1.2);
+    this.decay=Math.exp(-1/(sr*width));this.openDecay=Math.exp(-1/(sr*width*.45));
+    this.edgeDecay=Math.exp(-1/(sr*.00022));
+    this.dcA=Math.exp(-TAU*28/sr);
+    this.closedA=1-Math.exp(-TAU*(180+p.rasp*200)/sr);
+    this.openA=1-Math.exp(-TAU*Math.min(sr*.22,2200+p.rasp*2800)/sr);
+    this.body.tune(p.exhaust*.72*detune,.85+p.body*.65,sr);
+    this.throat.tune(p.exhaust*4.5*detune,.9,sr);
+  }
+  fire(weight){this.pulse+=weight;this.edge+=weight;}
+  next(load,body,rasp){
+    this.pulse*=this.decay+(this.openDecay-this.decay)*load;this.edge*=this.edgeDecay;
+    const pressure=this.pulse-this.edge;
+    const high=pressure-this.prev+this.dcA*this.dc;this.prev=pressure;this.dc=high;
+    const a=this.closedA+(this.openA-this.closedA)*load;
+    this.mouth+=a*(high-this.mouth);
+    const chest=this.body.next(high),bark=this.throat.next(high);
+    const voice=this.mouth*(.1+load*.95)+chest*body*(1.15-load*.3)+bark*(.03+rasp*load*1.8);
+    const driven=voice*(.9+load*.8);
+    return driven/(1+.65*Math.abs(driven));
+  }
+}
+
 export class EngineSynth {
   constructor(patch = DEFAULT, sampleRate = 48000) {
     if (!Number.isFinite(sampleRate) || sampleRate < 8000 || sampleRate > 192000) throw new Error('Unsupported sample rate.');
@@ -65,6 +111,7 @@ export class EngineSynth {
     this.phase = 0; this.shaft = 0; this.carrier = 0; this.field = 0; this.turboPhase = 0;
     this.pulse = 0; this.edge = 0; this.low = 0; this.air = 0; this.bodyLow = 0;
     this.prev = 0; this.dc = 0; this.firings = 0; this.textureEnvelope = 0;
+    this.banks=[new V8ExhaustBank(),new V8ExhaustBank()];
     this.delay = new Float32Array(Math.round(sampleRate * .027)); this.delayIndex = 0;
   }
   set(patch) {
@@ -91,6 +138,8 @@ export class EngineSynth {
     const dcA = Math.exp(-TAU*18/sr);
     const textureAttack=1-Math.exp(-1/(sr*.06)),textureRelease=1-Math.exp(-1/(sr*.35));
     const crossGains = [1,.52,.75,.52,.85,1,.52,.75];
+    const isV8=p.mode==='combustion'&&p.firing==='cross'&&p.cylinders===8&&p.stroke===4;
+    this.banks[0].tune(p,this.rpm,sr,.96);this.banks[1].tune(p,this.rpm,sr,1.04);
     for (let i=0; i<output.length; i++) {
       const previousRPM=this.rpm;
       this.rpm += (t.rpm-this.rpm)*rpmEase;
@@ -107,7 +156,8 @@ export class EngineSynth {
       const spacing = p.firing==='uneven' ? (this.firings%2 ? 1.38:.62) : 1;
       if (this.phase >= spacing) {
         this.phase -= spacing;
-        const weight = (p.firing==='cross' ? crossGains[this.firings%8] : 1) * (1+p.roughness*n*.32*texture);
+        const weight = (p.firing==='cross'&&!isV8 ? crossGains[this.firings%8] : 1) * (1+p.roughness*n*.32*texture);
+        if(isV8)this.banks[V8_BANKS[this.firings%8]].fire(weight);
         this.pulse += weight; this.edge += weight; this.firings++;
       }
       this.pulse *= pulseDecay; this.edge *= edgeDecay;
@@ -122,7 +172,13 @@ export class EngineSynth {
       const mech = Math.sin(TAU*this.shaft*6)*.65 + Math.sin(TAU*this.shaft*12)*.2;
       const field = Math.sin(TAU*this.carrier) * (.65+.35*Math.sin(TAU*this.field)) + .3*Math.sin(TAU*(this.carrier*2+this.field));
       const roar = this.air * (.15+this.load*.65) * (p.mode==='turbine' ? 1.3 : .5) * texture;
-      const engine = (this.low*.6+this.bodyLow*p.body*.8+combustion*p.rasp*.2)*(p.mode==='combustion' ? 1 : p.mode==='ion' ? .14 : .07);
+      // Run the bank tails even when changing character, avoiding a frozen tail
+      // reappearing when the V8 is selected again.
+      const leftBank=this.banks[0].next(this.load,p.body,p.rasp),rightBank=this.banks[1].next(this.load,p.body,p.rasp);
+      // Near-tailpipe perspective: equal mono summing masks the bank rhythm
+      // and leaves a very clean four-firings-per-revolution singing tone.
+      const bankVoice=leftBank+rightBank*.32;
+      const engine = isV8 ? bankVoice : (this.low*.6+this.bodyLow*p.body*.8+combustion*p.rasp*.2)*(p.mode==='combustion' ? 1 : p.mode==='ion' ? .14 : .07);
       let signal = engine*(.2+this.load*.8) + p.intake*roar + mech*p.whine*.12;
       signal += Math.sin(TAU*this.turboPhase)*p.turbo*this.spool*.14;
       signal += Math.sin(TAU*this.shaft)*p.sub*.22*(.45+this.load*.55);

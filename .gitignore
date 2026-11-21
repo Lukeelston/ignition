@@ -6,6 +6,7 @@ evidence/*.png
 evidence/*.json
 release/
 samples/*.wav
+!samples/v8-demo.wav
 firmware/build/
 firmware/ignition/build/
 evidence/*.pcm

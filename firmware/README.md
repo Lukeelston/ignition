@@ -6,6 +6,8 @@ The [manufacturer's matching board guide](https://learn.lonelybinary.com/boards/
 
 ## Reuse Iris's audio assembly
 
+Source update, 2026-11-21: the V8 now uses independently resonating exhaust banks and a near-tailpipe mix, with sharper loaded exhaust and the existing acceleration-only texture. `v8_exhaust.h` contains the fixed-memory filter model. This update compiles for the S3; the installed board image and physical listening result remain the separately recorded bench state below. Rebuild with `python tools/build_firmware.py`; this command never uploads.
+
 Luke authorized borrowing the amp and speaker. Read the chat **Design Iris’s embodied form**, then verified its references against the current files:
 
 - `C:/Users/Luke/Atlas/brain/iris/docs/IRIS-SCREEN-HARDWARE.md`

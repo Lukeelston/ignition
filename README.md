@@ -45,6 +45,8 @@ Hold for 0.65 seconds to change engine, then every 0.9 seconds while held. The f
 
 These are synthesized sound-design starting points, not recordings of specific vehicles or a thermodynamic simulation. Cross-bank and uneven firing are expressive approximations. Clips have short edge fades; steady clips are not guaranteed seamless loops. The WAV export's gear trajectory is a scripted sweep, separate from Play's interactive simplified driving model.
 
+The V8 uses two separately resonating exhaust banks, with a close-tailpipe mix that preserves their uneven beat in mono. Load changes pulse shape and exhaust brightness as well as level. **Body**, **Exhaust tone** and **Rasp & grit** control the weight, pipe tuning and loaded bark; acceleration texture fades again at steady revs. [Listen to the 15-second V8 demo](samples/v8-demo.wav): idle, blip, pull, shift, held revs and lift-off. It is rendered at the toy's 16 kHz rate and level-adjusted for comparison, not recorded from the physical speaker.
+
 ## Files and verification
 
 - `web/engine.js`: deterministic DSP, presets, patch format, motion curves and WAV encoder.
@@ -59,10 +61,12 @@ These are synthesized sound-design starting points, not recordings of specific v
 - `tools/check_standalone.py`: run the standalone bundle in Chrome with no adjacent assets served; checks live audio, WAV export and shutdown.
 - `tools/check_audio_startup.py`: exercise actual audio with worklet loading rejected, plus recovery from an audio-resume promise that never resolves.
 - `tools/render_samples.mjs`: regenerate the V8 and ion-drive listening samples.
+- `tools/render_v8_comparison.mjs`: render the repeatable V8 audition at 16/48 kHz with matched RMS levels. Use `before path/to/old-engine.mjs` for a saved baseline module, then `after` for the current DSP; the latter also updates the checked-in demo.
 - `docs/verification.md`: measured results and limitations.
 
 ```powershell
-node --test tests/engine.test.mjs
+npm test
+python tools/check_firmware.py
 python tools/check_browser.py
 python tools/build_standalone.py
 python tools/check_standalone.py

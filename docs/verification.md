@@ -1,4 +1,23 @@
-# Ignition verification — updated 2026-11-07
+# Ignition verification — updated 2026-11-21
+
+## V8 exhaust refinement — 2026-11-21
+
+Luke selected a muscle-car V8 as the priority. The browser and native synth now route combustion into two separate banks in Chevy 1-8-4-3-6-5-7-2 order. Each bank has rounded pressure pulses, DC rejection, body/throat bandpass resonances, load-dependent pulse width and outlet bandwidth, and soft saturation. A near-tailpipe mono balance preserves the unequal per-bank rhythm. Existing controls, patch format, drive model, acceleration-only noise and idle-only flutter remain.
+
+The first audition received this feedback: **“the lower rumble sounds good, but the top sounds like a sine wave pitching up and down.”** An isolated-voice spectral probe found the main firing harmonic carried 70% of total energy at 3,600 RPM with near-equal bank mixing. Adjusting the bank balance reduces that dominance; a regression now requires less than 55% at both 3,600 and 6,000 RPM. This is a listening-driven design threshold, not an assertion about a real vehicle's spectrum. The revised, level-matched second audition was supplied; its subjective improvement remains **unverified — needs user confirmation**.
+
+Verified:
+
+- Node suite **28/28**. New regressions cover load-dependent spectral brightness, retained level across 8/16/48/96 kHz and the road-speed range, dominant-tone reduction, and rapid parameter/preset changes. Load-brightness and dominant-tone checks were observed failing on the preceding implementations before passing.
+- Native C++ core suite passes for all eight presets, including restart/silence and existing input/drive tests. Eight browser/native V8 level and brightness checkpoints agree within **0.0064%**. Twenty drive checkpoints retain maximum RPM error **0.005893**.
+- ESP32-S3 build passes with Arduino ESP32 **3.3.12**: **354,462 bytes program / 35,064 bytes static RAM**. Synth state is **12,076 bytes**, an increase of 168 bytes. The missing local toolchain was restored from Espressif's official package index at the same version as the previous build.
+- Final standalone Chrome test passes live playback, driving, 24-bit WAV export and shutdown, with no external asset requests or page errors. Modular Chrome worklet capture is non-silent (peak **0.21276**, RMS **0.05258**); WAV export is 48 kHz/24-bit/96,000 frames. Startup rejection/recovery and callback fallback checks pass.
+- Toy interaction check passed on the first bank-voice revision (upshift **6040→5435 RPM**, fallback **−24.4 dBFS**, no page errors); final standalone check exercises the refined balance. Driving/controller code was unchanged.
+- `samples/v8-demo.wav` is an original 15-second synth render at 16 kHz/24-bit, RMS **0.12589254** and peak **0.51906943** after comparison gain. Both before/after auditions target −18 dBFS RMS, without activating the peak guard. No third-party recording is incorporated. The demo is browser DSP rendered at the device's rate; `evidence/firmware-v8-host.wav` is separately rendered by the actual native core.
+
+No device was flashed in this pass. Physical speaker quality and real-device render timing remain **unverified — needs user confirmation**. The earlier installed firmware and hardware observations below are historical, not claims about this new binary.
+
+## Earlier verification
 
 ## Passed
 

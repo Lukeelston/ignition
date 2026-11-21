@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include "v8_exhaust.h"
 
 namespace ignition {
 constexpr float tau=6.28318530718f;
@@ -149,11 +150,13 @@ class Synth {
   Patch p,target;uint32_t rng=7;int delayIndex=0;
   float rpm=950,load=.28f,spool=0,phase=0,shaft=0,carrier=0,fieldPhase=0,turboPhase=0;
   float pulse=0,edge=0,low=0,air=0,bodyLow=0,prev=0,dc=0,gain=0,textureEnvelope=0;
+  V8ExhaustBank banks[2];
   bool audible=false;
   void restart(float startRPM,float startLoad){
     p=target;rng=target.seed?target.seed:0x6d2b79f5;rpm=startRPM;load=startLoad;
     spool=phase=shaft=carrier=fieldPhase=turboPhase=0;
     pulse=edge=low=air=bodyLow=prev=dc=gain=textureEnvelope=0;firings=0;delayIndex=0;
+    banks[0]=V8ExhaustBank();banks[1]=V8ExhaustBank();
     std::fill(delay,delay+delaySize,0.f);
   }
   float noise(){uint32_t x=rng;x^=x<<13;x^=x>>17;x^=x<<5;rng=x;return float(double(rng)/2147483648.0-1);}
@@ -190,6 +193,11 @@ public:
     const float airA=1-std::exp(-tau*1500/sampleRate),dcA=std::exp(-tau*18/sampleRate);
     const float textureAttack=1-std::exp(-1/(sampleRate*.06f)),textureRelease=1-std::exp(-1/(sampleRate*.35f));
     const float crossGains[8]={1,.52f,.75f,.52f,.85f,1,.52f,.75f};
+    // Chevy 1-8-4-3-6-5-7-2: unequal bank intervals, equal overall firing rate.
+    const int v8Banks[8]={0,1,1,0,1,0,0,1};
+    const bool isV8=p.mode==Mode::Combustion&&p.firing==Firing::Cross&&p.cylinders==8&&p.stroke==4;
+    banks[0].tune(p.body,p.exhaust,p.rasp,rpm,p.redline,sampleRate,.96f);
+    banks[1].tune(p.body,p.exhaust,p.rasp,rpm,p.redline,sampleRate,1.04f);
     for(size_t i=0;i<count;i++){
       const float previousRPM=rpm;
       rpm+=(wantedRPM-rpm)*rpmEase;load+=(wantedLoad-load)*loadEase;gain+=(wantedGain-gain)*.002f;
@@ -200,7 +208,11 @@ public:
       const float idleFlutter=p.mode==Mode::Combustion?bounded(2-rpm/p.idle,0,1):1;
       phase+=rpm*p.cylinders/((p.stroke==4?120:60)*sampleRate)*(1+p.roughness*.025f*idleFlutter*sinCycle(fieldPhase));
       const float spacing=p.firing==Firing::Uneven?(firings%2?1.38f:.62f):1;
-      if(phase>=spacing){phase-=spacing;const float weight=(p.firing==Firing::Cross?crossGains[firings%8]:1)*(1+p.roughness*n*.32f*texture);pulse+=weight;edge+=weight;firings++;}
+      if(phase>=spacing){
+        phase-=spacing;const float weight=(p.firing==Firing::Cross&&!isV8?crossGains[firings%8]:1)*(1+p.roughness*n*.32f*texture);
+        if(isV8)banks[v8Banks[firings%8]].fire(weight);
+        pulse+=weight;edge+=weight;firings++;
+      }
       pulse*=pulseDecay;edge*=edgeDecay;const float combustion=pulse-edge;
       low+=lowA*(combustion-low);bodyLow+=bodyA*(low-bodyLow);air+=airA*(n-air);
       spool+=((rpm/p.redline)*(.25f+.75f*load)-spool)/(sampleRate*.38f);
@@ -209,7 +221,9 @@ public:
       const float mech=sinCycle(shaft*6)*.65f+sinCycle(shaft*12)*.2f;
       const float field=sinCycle(carrier)*(.65f+.35f*sinCycle(fieldPhase))+.3f*sinCycle(carrier*2+fieldPhase);
       const float roar=air*(.15f+load*.65f)*(p.mode==Mode::Turbine?1.3f:.5f)*texture;
-      const float engine=(low*.6f+bodyLow*p.body*.8f+combustion*p.rasp*.2f)*(p.mode==Mode::Combustion?1.f:p.mode==Mode::Ion?.14f:.07f);
+      // Near-tailpipe perspective retains unequal bank beats in mono.
+      const float bankVoice=banks[0].next(load,p.body,p.rasp)+banks[1].next(load,p.body,p.rasp)*.32f;
+      const float engine=isV8?bankVoice:(low*.6f+bodyLow*p.body*.8f+combustion*p.rasp*.2f)*(p.mode==Mode::Combustion?1.f:p.mode==Mode::Ion?.14f:.07f);
       float signal=engine*(.2f+load*.8f)+p.intake*roar+mech*p.whine*.12f;
       signal+=sinCycle(turboPhase)*p.turbo*spool*.14f;
       signal+=sinCycle(shaft)*p.sub*.22f*(.45f+load*.55f);

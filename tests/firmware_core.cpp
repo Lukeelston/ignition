@@ -13,6 +13,47 @@ static void advance(Drive& d,int ticks,float throttle=0,bool brake=false,bool bo
 }
 int main(int argc,char** argv) {
   assert(argc==2);
+  // A loaded V8 changes spectral balance, not only amplitude. Use the same
+  // observable high-band/total-energy ratio as the browser acceptance test.
+  struct VoiceMeasurement {double rms,brightness;};
+  auto measureV8=[](float rpm,float load){
+    Patch p=kPatches[0];p.rpm=rpm;p.load=load;
+    p.intake=p.whine=p.turbo=p.sub=p.reactor=p.space=p.roughness=0;
+    Synth synth(p);float block[128],low=0;double energy=0,upper=0;
+    const float alpha=1-std::exp(-tau*1000/sampleRate);
+    for(uint32_t offset=0;offset<sampleRate*2;offset+=128){
+      const int count=std::min(128u,sampleRate*2-offset);synth.process(block,count,rpm,load,.8f);
+      for(int i=0;i<count;i++){
+        const float x=block[i];low+=alpha*(x-low);
+        if(offset>=sampleRate){energy+=x*x;upper+=(x-low)*(x-low);}
+      }
+    }
+    return VoiceMeasurement{std::sqrt(energy/sampleRate),std::sqrt(upper/energy)};
+  };
+  for(float rpm:{1800.f,3600.f}){
+    const auto coast=measureV8(rpm,.1f),pull=measureV8(rpm,.9f);
+    assert(pull.brightness>coast.brightness*1.25&&pull.rms>coast.rms*1.4);
+  }
+  assert(measureV8(6500,.8f).rms>measureV8(1800,.8f).rms*.5);
+  std::ofstream soundTrace(std::string(argv[1])+"/firmware-v8-metrics.csv");
+  for(float rpm:{750.f,1800.f,3600.f,6000.f})for(float load:{.1f,.85f}){
+    const auto result=measureV8(rpm,load);
+    soundTrace<<rpm<<","<<load<<","<<result.rms<<","<<result.brightness<<"\n";
+  }
+  for(float rpm:{3600.f,6000.f}){
+    Patch p=kPatches[0];p.rpm=rpm;p.load=.85f;
+    p.roughness=p.intake=p.whine=p.sub=p.space=0;
+    Synth synth(p);float block[128];double energy=0,re=0,im=0;
+    for(int n=0;n<125;n++)synth.process(block,128,rpm,.85f,.8f);
+    for(uint32_t i=0;i<sampleRate;i+=128){
+      const auto count=std::min(128u,sampleRate-i);synth.process(block,count,rpm,.85f,.8f);
+      for(uint32_t j=0;j<count;j++){
+        const double x=block[j],angle=6.283185307179586*(rpm/15)*(i+j)/sampleRate;
+        energy+=x*x;re+=x*std::cos(angle);im+=x*std::sin(angle);
+      }
+    }
+    assert(2*(re*re+im*im)/(sampleRate*energy)<.55);
+  }
   assert(speakerSample(0,2)==0);
   assert(std::fabs(speakerSample(.2f,2)-.4f)<1e-6f);
   assert(std::fabs(speakerSample(-.2f,2)+.4f)<1e-6f);
